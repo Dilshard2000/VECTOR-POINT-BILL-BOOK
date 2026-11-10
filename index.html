@@ -121,6 +121,7 @@ table.list{width:100%;border-collapse:separate;border-spacing:0;background:var(-
 .list tr:last-child td{border-bottom:0}
 .list tr:hover td{background:#1c1c20}
 .list .r{text-align:right}
+.list td:first-child b{white-space:nowrap}
 .list .acts{display:flex;gap:4px;justify-content:flex-end}
 .tag{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--raise);color:var(--muted)}
 .tag.invoice{background:rgba(255,90,31,.15);color:#ff8a5c}
@@ -132,6 +133,23 @@ table.list{width:100%;border-collapse:separate;border-spacing:0;background:var(-
 .status.Draft{color:var(--muted)}
 .status option{background:var(--panel);color:var(--ink)}
 .empty{text-align:center;padding:50px;color:var(--muted)}
+
+/* ---------- Clients ---------- */
+.clientsWrap{display:grid;grid-template-columns:320px 1fr;gap:16px;align-items:start}
+.clientCards{display:flex;flex-direction:column;gap:8px;max-height:calc(100vh - 170px);overflow:auto}
+.ccard{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;cursor:pointer;text-align:left;width:100%}
+.ccard:hover{border-color:#45454d}
+.ccard.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.ccard .nm{font-weight:600}
+.ccard .sub{font-size:12px;color:var(--muted);margin-top:2px}
+.ccard .row{display:flex;justify-content:space-between;margin-top:8px;font-size:12px;color:var(--muted)}
+.ccard .row b{color:var(--ink);font-weight:600}
+.ccard .due{color:var(--warn)}
+.chead{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:12px}
+.chead h2{margin:0;font-size:20px;letter-spacing:-.01em}
+.chead .sub{color:var(--muted);font-size:13px;white-space:pre-line;margin-top:4px}
+.cstats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+@media (max-width:980px){.clientsWrap{grid-template-columns:1fr}.clientCards{max-height:none}.cstats{grid-template-columns:1fr 1fr}}
 
 /* ---------- Settings ---------- */
 .settings{display:grid;grid-template-columns:1fr 1fr;gap:16px}
@@ -175,6 +193,7 @@ table.list{width:100%;border-collapse:separate;border-spacing:0;background:var(-
     <nav class="tabs">
       <button data-view="editor" class="on">Editor</button>
       <button data-view="history">History</button>
+      <button data-view="clients">Clients</button>
       <button data-view="settings">Settings</button>
     </nav>
     <div class="spacer"></div>
@@ -205,6 +224,15 @@ table.list{width:100%;border-collapse:separate;border-spacing:0;background:var(-
       <select class="inp" id="fStatus"><option value="">Any status</option><option>Draft</option><option>Sent</option><option>Paid</option><option>Overdue</option><option>Accepted</option><option>Declined</option></select>
     </div>
     <div id="list"></div>
+  </main>
+
+  <!-- CLIENTS -->
+  <main id="v-clients" class="page hidden">
+    <div class="filters"><input class="inp search" id="cq" placeholder="Search clients by company, name or email…"></div>
+    <div class="clientsWrap">
+      <div id="clientCards" class="clientCards"></div>
+      <div id="clientDetail"></div>
+    </div>
   </main>
 
   <!-- SETTINGS -->
@@ -258,7 +286,6 @@ function load(){
     if (!db.settings.email) db.settings.email = defaultSettings.email;
     if ((db.settings.bank||'').includes('0000 0000 0000')) db.settings.bank = defaultSettings.bank; db.docs = d.docs || []; return; }
   } catch { storageOK = false; }
-  seed();
 }
 function persist(){
   try { localStorage.setItem(KEY, JSON.stringify(db)); }
@@ -295,26 +322,6 @@ function effStatus(doc){
   if (doc.type === 'invoice' && doc.status === 'Sent' && doc.dueDate && doc.dueDate < today()) return 'Overdue';
   return doc.status;
 }
-function seed(){
-  const y = new Date().getFullYear();
-  const mk = (type, n, status, issue, client, items, extra={}) => ({...blankDoc(type), notes: type==='invoice' ? '' : db.settings.qtNotes, number:`${type==='invoice'?'INV':'QT'}-${y}-00${n}`, status, issueDate:issue,
-    dueDate:addDays(issue, type==='invoice'?14:30), client, items, ...extra});
-  const c1 = {name:'Amaya Perera', company:'Lumen Coffee Co.', email:'amaya@lumen.example', address:'12 Galle Road\nColombo 03'};
-  const c2 = {name:'Ravi Fernando', company:'Northwind Studio', email:'ravi@northwind.example', address:'45 Ward Place\nColombo 07'};
-  db.docs = [
-    mk('quote', 1, 'Accepted', addDays(today(), -40), c1, [
-      {desc:'Brand film — 30s motion piece', detail:'Concept, storyboard, animation, sound design', qty:1, rate:180000},
-      {desc:'Social cutdowns', detail:'3 × 9:16 edits for Reels / TikTok', qty:3, rate:15000}], {project:'Autumn Launch Campaign'}),
-    mk('invoice', 1, 'Paid', addDays(today(), -30), c1, [
-      {desc:'Brand film — 30s motion piece', detail:'Concept, storyboard, animation, sound design', qty:1, rate:180000},
-      {desc:'Social cutdowns', detail:'3 × 9:16 edits for Reels / TikTok', qty:3, rate:15000}], {project:'Autumn Launch Campaign', convertedFrom:`QT-${y}-001`}),
-    mk('invoice', 2, 'Sent', addDays(today(), -5), c2, [
-      {desc:'Website design', detail:'5-page marketing site, desktop + mobile', qty:1, rate:250000},
-      {desc:'Meta ads management', detail:'Monthly retainer', qty:1, rate:60000}], {project:'Website Refresh'}),
-  ];
-  persist();
-}
-
 /* ---------------- State ---------------- */
 let cur = null;      // doc being edited
 let dirty = false;
@@ -563,12 +570,15 @@ function renderHistory(){
     return true;
   });
   if (!rows.length){ $('#list').innerHTML = `<div class="empty card">${db.docs.length ? 'Nothing matches those filters.' : 'No documents yet — create a quotation or invoice to get started.'}</div>`; return; }
-  $('#list').innerHTML = `<table class="list"><thead><tr><th>Number</th><th>Type</th><th>Client</th><th>Issued</th><th>Due / Valid</th><th class="r">Amount</th><th>Status</th><th></th></tr></thead><tbody>
+  $('#list').innerHTML = docTable(rows, true);
+}
+function docTable(rows, showClient){
+  return `<table class="list"><thead><tr><th>Number</th><th>Type</th>${showClient?'<th>Client</th>':''}<th>Issued</th><th>Due / Valid</th><th class="r">Amount</th><th>Status</th><th></th></tr></thead><tbody>
   ${rows.map(d => { const st = effStatus(d), opts = d.type==='invoice'?INV_STATUS:QT_STATUS; return `
     <tr data-id="${d.id}">
       <td><b>${esc(d.number)}</b>${d.project?`<div class="hint">${esc(d.project)}</div>`:''}</td>
       <td><span class="tag ${d.type}">${d.type==='invoice'?'Invoice':'Quote'}</span></td>
-      <td>${esc(d.client.company || d.client.name || '—')}</td>
+      ${showClient?`<td>${esc(d.client.company || d.client.name || '—')}</td>`:''}
       <td>${fmtDate(d.issueDate)}</td><td>${fmtDate(d.dueDate)}</td>
       <td class="r"><b>${money(totals(d).total, d.currency)}</b></td>
       <td><select class="status ${st}" data-act="status">${opts.map(o=>`<option ${o===d.status?'selected':''}>${o}</option>`).join('')}${st==='Overdue'?'<option selected disabled>Overdue</option>':''}</select></td>
@@ -583,22 +593,84 @@ function renderHistory(){
   </tbody></table>`;
 }
 ['#q','#fType','#fStatus'].forEach(s => $(s).addEventListener('input', renderHistory));
-$('#list').addEventListener('click', e => {
-  const act = e.target.dataset.act; if (!act || act === 'status') return;
+function onDocClick(e){
+  const act = e.target.dataset.act; if (!act || act === 'status' || !e.target.closest('tr')) return;
   const id = e.target.closest('tr').dataset.id, d = db.docs.find(x => x.id === id);
   const guard = fn => (dirty && cur.id !== id) ? confirmBox('Discard unsaved changes in the editor?', fn, 'Discard') : fn();
   if (act === 'open') guard(() => openDoc(d));
   if (act === 'pdf') exportPDF(d);
   if (act === 'convert') guard(() => convert(id));
   if (act === 'dup') guard(() => { const n = {...clone(d), id:uid(), number:nextNumber(d.type), status:'Draft', issueDate:today(), dueDate:addDays(today(), d.type==='invoice'?+db.settings.invDays:+db.settings.qtDays), convertedFrom:undefined, createdAt:Date.now(), updatedAt:Date.now()}; cur = n; renderForm(); renderPreview(); setDirty(true); show('editor'); toast('Duplicated — save to keep it'); });
-  if (act === 'del') confirmBox(`Delete ${d.number}? This can't be undone.`, () => { db.docs = db.docs.filter(x => x.id !== id); persist(); renderHistory(); toast('Deleted'); }, 'Delete');
-});
-$('#list').addEventListener('change', e => {
+  if (act === 'del') confirmBox(`Delete ${d.number}? This can't be undone.`, () => { db.docs = db.docs.filter(x => x.id !== id); persist(); refreshLists(); toast('Deleted'); }, 'Delete');
+}
+function onDocChange(e){
   if (e.target.dataset.act !== 'status') return;
   const id = e.target.closest('tr').dataset.id, d = db.docs.find(x => x.id === id);
   d.status = e.target.value; d.updatedAt = Date.now(); persist();
   if (cur && cur.id === id) cur.status = d.status;
-  renderHistory(); toast(`${d.number} → ${d.status}`);
+  refreshLists(); toast(`${d.number} → ${d.status}`);
+}
+['#list','#clientDetail'].forEach(s => { $(s).addEventListener('click', onDocClick); $(s).addEventListener('change', onDocChange); });
+function refreshLists(){
+  if (!$('#v-history').classList.contains('hidden')) renderHistory();
+  if (!$('#v-clients').classList.contains('hidden')) renderClients();
+}
+
+/* ---------------- Clients ---------------- */
+let selClient = null;
+const ckey = c => (c.company || c.name || '').trim().toLowerCase();
+function clientGroups(){
+  const g = new Map();
+  [...db.docs].sort((a, b) => (b.issueDate||'').localeCompare(a.issueDate||'') || b.createdAt - a.createdAt).forEach(d => {
+    const k = ckey(d.client); if (!k) return;
+    if (!g.has(k)) g.set(k, {key:k, client:d.client, docs:[]});
+    g.get(k).docs.push(d);
+  });
+  return [...g.values()];
+}
+function sumBy(docs, f){
+  const m = {}; docs.filter(f).forEach(d => { m[d.currency] = (m[d.currency]||0) + totals(d).total; });
+  const parts = Object.entries(m).map(([c, v]) => money(v, c));
+  return parts.length ? parts.join(' + ') : money(0, docs[0]?.currency || db.settings.currency);
+}
+function renderClients(){
+  const q = $('#cq').value.toLowerCase().trim();
+  const groups = clientGroups().filter(g => !q || [g.client.company, g.client.name, g.client.email, ...g.docs.map(d => d.project)].join(' ').toLowerCase().includes(q));
+  if (!clientGroups().length){ $('#clientCards').innerHTML = ''; $('#clientDetail').innerHTML = `<div class="empty card">No clients yet — they appear here once you save a quotation or invoice.</div>`; return; }
+  if (!groups.find(g => g.key === selClient)) selClient = groups[0]?.key || null;
+  $('#clientCards').innerHTML = groups.map(g => {
+    const inv = g.docs.filter(d => d.type === 'invoice'), out = inv.filter(d => d.status === 'Sent');
+    return `<button class="ccard ${g.key === selClient ? 'on' : ''}" data-ck="${esc(g.key)}">
+      <div class="nm">${esc(g.client.company || g.client.name)}</div>
+      ${g.client.company && g.client.name ? `<div class="sub">${esc(g.client.name)}</div>` : ''}
+      <div class="row"><span>${inv.length} invoice${inv.length===1?'':'s'} · ${g.docs.length - inv.length} quote${g.docs.length - inv.length===1?'':'s'}</span><span>${fmtDate(g.docs[0].issueDate)}</span></div>
+      <div class="row"><span>Paid <b>${sumBy(inv, d => d.status === 'Paid')}</b></span>${out.length ? `<span class="due">${sumBy(out, () => true)} due</span>` : ''}</div>
+    </button>`;
+  }).join('') || `<div class="empty card">No clients match “${esc(q)}”.</div>`;
+  const g = groups.find(x => x.key === selClient);
+  if (!g){ $('#clientDetail').innerHTML = ''; return; }
+  const c = g.client, inv = g.docs.filter(d => d.type === 'invoice'), qts = g.docs.filter(d => d.type === 'quote');
+  const sub = [c.company && c.name ? c.name : '', c.email, c.address].filter(Boolean).join('\n');
+  $('#clientDetail').innerHTML = `
+    <div class="chead">
+      <div><h2>${esc(c.company || c.name)}</h2>${sub ? `<div class="sub">${esc(sub)}</div>` : ''}</div>
+      <div style="display:flex;gap:8px"><button class="btn sm" data-newfor="quote">+ Quotation</button><button class="btn sm primary" data-newfor="invoice">+ Invoice</button></div>
+    </div>
+    <div class="cstats">
+      <div class="stat"><small>Total invoiced</small><div>${sumBy(inv, () => true)}</div></div>
+      <div class="stat"><small>Paid</small><div>${sumBy(inv, d => d.status === 'Paid')}</div></div>
+      <div class="stat"><small>Outstanding</small><div>${sumBy(inv, d => d.status === 'Sent')}</div><em>${inv.filter(d => effStatus(d) === 'Overdue').length} overdue</em></div>
+      <div class="stat"><small>Quotations</small><div>${qts.length}</div><em>${qts.filter(d => d.status === 'Accepted').length} accepted</em></div>
+    </div>
+    ${docTable(g.docs, false)}`;
+}
+$('#cq').addEventListener('input', renderClients);
+$('#clientCards').addEventListener('click', e => { const b = e.target.closest('.ccard'); if (!b) return; selClient = b.dataset.ck; renderClients(); });
+$('#clientDetail').addEventListener('click', e => {
+  const t = e.target.dataset.newfor; if (!t) return;
+  const g = clientGroups().find(x => x.key === selClient); if (!g) return;
+  const go = () => { cur = blankDoc(t); cur.client = {...g.client}; setDirty(false); show('editor'); };
+  dirty ? confirmBox('Discard unsaved changes?', go, 'Discard') : go();
 });
 
 /* ---------------- Settings ---------------- */
@@ -670,9 +742,10 @@ $('#settingsForm').addEventListener('click', e => {
 /* ---------------- UI helpers ---------------- */
 function show(view){
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.view === view));
-  ['editor','history','settings'].forEach(v => $('#v-' + v).classList.toggle('hidden', v !== view));
+  ['editor','history','clients','settings'].forEach(v => $('#v-' + v).classList.toggle('hidden', v !== view));
   $('#editorActions').style.visibility = view === 'editor' ? 'visible' : 'hidden';
   if (view === 'history') renderHistory();
+  if (view === 'clients') renderClients();
   if (view === 'settings') renderSettings();
   if (view === 'editor'){ renderForm(); renderPreview(); }
 }
