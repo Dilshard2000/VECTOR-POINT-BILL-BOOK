@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Billbook — Quotes & Invoices</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0e0e10; --panel:#17171a; --ink:#f2f2f3; --muted:#8d8d95; --line:#2a2a2f; --soft:#1f1f23; --raise:#26262b;
+  color-scheme:dark;
+  --accent:#ff5a1f; --ok:#34d27b; --warn:#f5a524; --bad:#f87171; --info:#60a5fa;
+  --r:12px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 Inter,system-ui,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.hidden{display:none!important}
+
+/* ---------- Top bar ---------- */
+.top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:16px;padding:12px 20px;background:rgba(14,14,16,.85);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.01em}
+.brand i{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;color:#fff;font-style:normal;font-size:13px}
+.tabs{display:flex;gap:4px;background:var(--soft);padding:4px;border-radius:10px}
+.tabs button{border:0;background:none;padding:6px 14px;border-radius:7px;font-weight:500;color:var(--muted)}
+.tabs button.on{background:var(--raise);color:var(--ink)}
+.spacer{flex:1}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 14px;border-radius:9px;font-weight:500;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{border-color:#45454d}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:#0e0e10}
+.btn.accent{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.ghost{border-color:transparent;background:none}
+.btn.sm{padding:5px 10px;font-size:13px}
+.btn.danger{color:var(--bad)}
+.dirty{font-size:12px;color:var(--warn);font-weight:500}
+
+/* ---------- Editor ---------- */
+.editor{display:grid;grid-template-columns:minmax(380px,460px) 1fr;gap:20px;padding:20px;align-items:start}
+.form{display:flex;flex-direction:column;gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.card h3{margin:0 0 12px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.full{grid-column:1/-1}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:500}
+.f input,.f select,.f textarea,.inp{border:1px solid var(--line);background:var(--soft);border-radius:8px;padding:8px 10px;font-size:14px;color:var(--ink);outline:none;width:100%}
+.f input:focus,.f select:focus,.f textarea:focus,.inp:focus{border-color:#6b6b74;background:var(--raise)}
+textarea{resize:vertical;min-height:64px}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--soft);padding:4px;border-radius:10px;gap:4px;margin-bottom:12px}
+.seg button{border:0;background:none;padding:8px;border-radius:7px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--raise);color:var(--ink)}
+
+.items{display:flex;flex-direction:column;gap:8px}
+.item{border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--soft);display:grid;grid-template-columns:1fr 70px 110px 28px;gap:6px;align-items:start}
+.item .inp{background:var(--panel)}
+.item .d{grid-column:1/2}
+.item .detail{grid-column:1/-1;font-size:13px;color:var(--muted)}
+.item .x{border:0;background:none;color:var(--muted);font-size:18px;line-height:1;padding:6px 0}
+.item .x:hover{color:var(--bad)}
+.item .amt{grid-column:1/-1;text-align:right;font-size:12px;color:var(--muted)}
+.ihead{display:grid;grid-template-columns:1fr 70px 110px 28px;gap:6px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:0 11px}
+
+/* ---------- Preview ---------- */
+.previewWrap{position:sticky;top:76px}
+.previewBar{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;color:var(--muted);font-size:12px}
+.stage{overflow:hidden}
+.stage .scaler{transform-origin:top left;width:794px}
+
+/* ---------- The document (A4) ---------- */
+.sheet{width:794px;min-height:1123px;background:#0a0a0a;color:#fff;box-shadow:0 0 0 1px #2a2a2f,0 20px 60px rgba(0,0,0,.5);padding:44px 34px 34px;display:flex;flex-direction:column;font-family:Inter,sans-serif;font-size:13px;position:relative;overflow:hidden}
+.s-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px}
+.s-head h1{font-family:Inter,sans-serif;font-weight:800;font-size:86px;line-height:.86;letter-spacing:-.04em;margin:0;text-transform:uppercase}
+
+.s-meta{text-align:right;padding-top:6px;font-size:13px;white-space:nowrap;flex:none}
+.s-meta .logo{height:104px;display:block;margin:0 0 18px auto}
+.s-meta div{margin-bottom:12px}
+.s-meta b{font-weight:600}
+.rule{border:0;border-top:1px solid #4d4d4d;margin:0}
+.s-bill{display:flex;justify-content:space-between;gap:30px;padding:18px 0 18px}
+.s-bill .lbl{font-weight:600;margin-bottom:12px}
+.s-bill .val{font-weight:500;line-height:1.5;white-space:pre-line}
+.s-bill .proj{text-align:right}
+.s-gap{height:100px}
+table.s-items{width:100%;border-collapse:collapse;border-top:1px solid #4d4d4d}
+.s-items th{font-weight:600;text-align:left;padding:13px 0;border-bottom:1px solid #4d4d4d}
+.s-items td{padding:9px 0 10px;border-bottom:1px solid #4d4d4d;vertical-align:top}
+.s-items .c{text-align:center;width:110px}
+.s-items .num{text-align:center;width:110px;white-space:nowrap}
+.s-items .det{color:#8f8f8f;font-size:11.5px;margin-top:2px;white-space:pre-line}
+.s-lower{display:flex;justify-content:space-between;gap:30px}
+.s-notes{padding-top:18px;font-size:12px;color:#b5b5b5;white-space:pre-line;max-width:330px;line-height:1.5}
+.s-notes .lbl{font-weight:600;color:#fff;margin-bottom:6px}
+.s-tot{width:322px;flex:none}
+.s-tot .r{display:grid;grid-template-columns:1fr 110px;padding:12px 0;font-weight:600;text-align:center}
+.s-tot .grand{border-top:1px solid #fff;padding-top:10px}
+.s-tot .grand b{font-weight:700}
+.s-sign{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:44px}
+.s-sign div{border-top:1px solid #fff;padding-top:6px;font-size:11px;color:#8f8f8f}
+.s-foot{margin-top:auto;padding-top:40px}
+.s-foot .cols{display:grid;grid-template-columns:1fr 1fr;gap:30px;padding:18px 0 22px}
+.s-foot .lbl{font-weight:600;margin-bottom:14px}
+.s-foot .val{line-height:1.55;white-space:pre-line}
+.sheet a{color:#fff;text-decoration:none}
+.stamp{display:inline-block;margin:6px 0 16px 4px;transform:rotate(-8deg);border:2px solid #fff;color:#fff;font-weight:800;letter-spacing:.25em;font-size:22px;padding:4px 16px;border-radius:6px;opacity:.8}
+
+/* ---------- History ---------- */
+.page{padding:20px;max-width:1200px;margin:0 auto}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px}
+.stat small{color:var(--muted);font-size:12px;font-weight:500}
+.stat div{font-size:20px;font-weight:700;margin-top:4px;letter-spacing:-.01em}
+.stat em{font-style:normal;font-size:12px;color:var(--muted);display:block}
+.filters{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.filters .inp{width:auto;background:var(--panel)}
+.filters .inp.search{flex:1;min-width:200px}
+table.list{width:100%;border-collapse:separate;border-spacing:0;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.list th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;padding:10px 12px;background:var(--soft);border-bottom:1px solid var(--line)}
+.list td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+.list tr:last-child td{border-bottom:0}
+.list tr:hover td{background:#1c1c20}
+.list .r{text-align:right}
+.list .acts{display:flex;gap:4px;justify-content:flex-end}
+.tag{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--raise);color:var(--muted)}
+.tag.invoice{background:rgba(255,90,31,.15);color:#ff8a5c}
+.tag.quote{background:rgba(129,140,248,.15);color:#a5b4fc}
+.status{border:1px solid var(--line);border-radius:99px;padding:3px 8px;font-size:12px;font-weight:600;background:var(--panel)}
+.status.Paid,.status.Accepted{color:var(--ok);border-color:rgba(52,210,123,.35);background:rgba(52,210,123,.1)}
+.status.Sent{color:var(--info);border-color:rgba(96,165,250,.35);background:rgba(96,165,250,.1)}
+.status.Overdue,.status.Declined{color:var(--bad);border-color:rgba(248,113,113,.35);background:rgba(248,113,113,.1)}
+.status.Draft{color:var(--muted)}
+.status option{background:var(--panel);color:var(--ink)}
+.empty{text-align:center;padding:50px;color:var(--muted)}
+
+/* ---------- Settings ---------- */
+.settings{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.logoBox{display:flex;align-items:center;gap:12px}
+.logoBox img{max-height:48px;max-width:160px;border-radius:8px;padding:6px;background:#0a0a0a}
+.hint{font-size:12px;color:var(--muted)}
+
+/* ---------- Modal / toast ---------- */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:grid;place-items:center;z-index:50}
+.modal .box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;width:min(380px,90vw);box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.modal p{margin:0 0 16px}
+.modal .row{display:flex;justify-content:flex-end;gap:8px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#0e0e10;padding:10px 16px;border-radius:10px;font-weight:500;z-index:60;opacity:0;transition:.2s;pointer-events:none}
+.toast.show{opacity:1}
+
+#print{display:none}
+
+@media (max-width:980px){
+  .editor{grid-template-columns:1fr}
+  .previewWrap{position:static}
+  .stats{grid-template-columns:1fr 1fr}
+  .settings{grid-template-columns:1fr}
+  .top{flex-wrap:wrap}
+}
+
+/* ---------- Print = PDF ---------- */
+@page{size:A4;margin:0}
+@media print{
+  html,body{background:#0a0a0a}
+  .app,.modal,.toast{display:none!important}
+  #print{display:block}
+  #print .sheet{box-shadow:none;width:210mm;min-height:297mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .s-items tr{break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand"><i style="background:#17161a url(data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyBpZD0iTGF5ZXJfMiIgZGF0YS1uYW1lPSJMYXllciAyIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMzUuMjcgMjM1LjE5Ij4KICA8ZGVmcz4KICAgIDxzdHlsZT4KICAgICAgLmNscy0xIHsKICAgICAgICBmaWxsOiAjZmZmOwogICAgICB9CiAgICA8L3N0eWxlPgogIDwvZGVmcz4KICA8ZyBpZD0iTGF5ZXJfMS0yIiBkYXRhLW5hbWU9IkxheWVyIDEiPgogICAgPGc+CiAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTIzNS4yNywwdjIzNS4xOHMtMjM1LjI2LDAtMjM1LjI2LDBWMHMyMzUuMjYsMCwyMzUuMjYsMFpNMjIwLjc5LDE0LjM4SDE0LjQzdjIwNi40NGgyMDYuMzVWMTQuMzhaIi8+CiAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTgzLjk1LDEyMi40NmMwLDE2LjY3LTEzLjUxLDMwLjE4LTMwLjE4LDMwLjE4cy0zMC4xOC0xMy41MS0zMC4xOC0zMC4xOCwxMy41MS0zMC4xOCwzMC4xOC0zMC4xOCwzMC4xOCwxMy41MSwzMC4xOCwzMC4xOFpNNjQuMDMsMTM4LjkxYzQuMjQtMi44Nyw2LjktNi43Nyw4LjA1LTExLjUzLDIuMjctOS40Mi0yLjE5LTE5LjIzLTExLjIxLTIyLjk3LTYtMi40OS0xMi43Ni0xLjczLTE4LjEsMi4wNi05LjIxLDYuNTQtMTAuMzEsMjAuOTgtMy4zNiwyOC44NSw2LjIyLDcuMDQsMTYuNjksOC45OCwyNC42MiwzLjZaIi8+CiAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTExOC4wNiwxMjUuNjFsMTMuNSwyNS40Ny0xMi4wNC4wOS0xMy41Ni0yNC44Ny0uMzIsMjQuOS0xMS4wMS0uMDl2LTU3LjQ5czE2LjQ5LjEyLDE2LjQ5LjEyYzMuMi4wMiw2LjIzLjcyLDkuMjIsMS42OCw0Ljc5LDIuNSw3Ljc5LDYuOTcsOC4zNSwxMi4zNC44Niw4LjMzLTIuMDMsMTQuNjktMTAuNjQsMTcuODZaTTExOC4xMywxMTAuNjVjLjE3LTMuMTgtMS43OS01Ljg1LTQuOTYtNS45OGwtNy41MS0uMzF2MTEuNzJjNS45OS0uMDQsMTIuMTYuNiwxMi40Ny01LjQ0WiIvPgogICAgICA8cGF0aCBjbGFzcz0iY2xzLTEiIGQ9Ik0xNjIuMDMsNzEuNThjMi45MS0xLjU3LDUuMDgtMy42Myw3LjU2LTUuODVsNy42MSw3LjhjLTkuMiw5LjA4LTE4LjIxLDEyLjM2LTMwLjg1LDEwLjYzLTguOS0xLjIyLTE2LjQ2LTYuMzctMjAuOTYtMTQuMTMtMy41Ni02LjE1LTQuNDItMTMuMTctMy42MS0yMC4yNSwxLjE3LTEwLjIxLDcuNTItMTguMywxNi43Ni0yMi42NCwxMy4zMi02LjI1LDI5LjQ5LTIuNjMsMzguODQsOC43MWwtNy42OSw3LjI1Yy0yLjY1LTIuNTgtNS41Mi01LTkuMDktNi41LTYuMzUtMi42OC0xMy42MS0yLjUtMTkuNCwxLjM4LTkuOTcsNi42OC0xMS4yNiwyMC4xNS00LjUzLDI4LjgyLDUuNyw3LjMzLDE3LjA0LDkuMjYsMjUuMzYsNC43OFoiLz4KICAgICAgPHBvbHlnb24gY2xhc3M9ImNscy0xIiBwb2ludHM9IjExNC4yNiA1Ny4yMSA5My43NiA1Ny4yMyA5My43MyA3Mi4yMSAxMTQuMjIgNzIuMjEgMTE0LjI1IDgzLjExIDgyLjY0IDgzLjE4IDgyLjYzIDI1LjU2IDExNC4yMiAyNS41NSAxMTQuMjUgMzYuMzkgOTMuNzMgMzYuNDEgOTMuNzQgNDYuNjEgMTE0LjIzIDQ2LjU5IDExNC4yNiA1Ny4yMSIvPgogICAgICA8cG9seWdvbiBjbGFzcz0iY2xzLTEiIHBvaW50cz0iMTc5Ljg0IDIxMi41OCAxNzAuNzEgMjEyLjYxIDE1MC4yNyAxODEuMjUgMTUwLjIzIDIxMi42NiAxNDAuNzkgMjEyLjcgMTQwLjc4IDE2NC4xIDE0OS44MyAxNjQuMSAxNzAuNTYgMTk1Ljk1IDE3MC42MSAxNjQuMDcgMTc5Ljg1IDE2NC4wNyAxNzkuODQgMjEyLjU4Ii8+CiAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTExMy41LDE4OC40NWMwLDE0LjA3LTExLjQxLDI1LjQ4LTI1LjQ4LDI1LjQ4cy0yNS40OC0xMS40MS0yNS40OC0yNS40OCwxMS40MS0yNS40OCwyNS40OC0yNS40OCwyNS40OCwxMS40MSwyNS40OCwyNS40OFpNMTA0LjIxLDE4OC40NWMwLTguOTYtNy4yNy0xNi4yMy0xNi4yMy0xNi4yM3MtMTYuMjMsNy4yNy0xNi4yMywxNi4yMyw3LjI3LDE2LjIzLDE2LjIzLDE2LjIzLDE2LjIzLTcuMjcsMTYuMjMtMTYuMjNaIi8+CiAgICAgIDxwb2x5Z29uIGNsYXNzPSJjbHMtMSIgcG9pbnRzPSI2Mi43IDI1LjU2IDc0LjEgMjUuNTQgNTMuMzIgODMuMTYgNDIuNjcgODMuMTQgMjIuMjggMjUuNTYgMzMuNjcgMjUuNTUgNDguMDggNjYuMTcgNjIuNyAyNS41NiIvPgogICAgICA8cG9seWdvbiBjbGFzcz0iY2xzLTEiIHBvaW50cz0iMjAyLjQ3IDgzLjE0IDE5MS4zIDgzLjE3IDE5MS4zIDM2LjQ4IDE4MS4xMiAzNi40NyAxODEuMTIgMjUuNTQgMjEzIDI1LjU0IDIxMy4wMSAzNi40NyAyMDIuNDcgMzYuNDcgMjAyLjQ3IDgzLjE0Ii8+CiAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTQ2LjA2LDE5MS40NGMtMy4xMi43My02LjM4LjY1LTkuNDIuOHYyMC40M3MtOS4yOS0uMDMtOS4yOS0uMDN2LTQ4LjU3czEzLjQzLjA1LDEzLjQzLjA1bDUuMjMuNjVjNi4zOCwxLjI1LDkuOTYsNi40NCwxMC4yMSwxMi43NC4yNyw2LjUtMy4zMywxMi4zMy0xMC4xNSwxMy45M1pNNDIuMTYsMTgyLjkzYzIuNjItLjA1LDQuNjEtMS42Myw0Ljk0LTMuOS4zMy0yLjI0LS44My00Ljc4LTMuMjctNS4zM3MtNC44NS0uNTYtNy4xOS0uNDh2OS44MXM1LjUyLS4xLDUuNTItLjFaIi8+CiAgICAgIDxwb2x5Z29uIGNsYXNzPSJjbHMtMSIgcG9pbnRzPSIxODkuODQgMTM4Ljk5IDE3OS4zNSAxMjguNTIgMTY5IDEzOC44NyAxNjEuNzggMTMxLjcyIDE3Mi4xNiAxMjEuMzMgMTYxLjcgMTEwLjg3IDE2OC44OSAxMDMuNzEgMTc5LjM4IDExNC4xMiAxODkuODYgMTAzLjY0IDE5Ny4wNSAxMTAuODIgMTg2LjUzIDEyMS4zMyAxOTYuOTkgMTMxLjc4IDE4OS44NCAxMzguOTkiLz4KICAgICAgPHBvbHlnb24gY2xhc3M9ImNscy0xIiBwb2ludHM9IjIwNC4wOSAyMTIuNTUgMTk0LjUxIDIxMi43MSAxOTQuNTEgMTczLjI4IDE4NS45NiAxNzMuMjggMTg1Ljk3IDE2NC4wNiAyMTIuOTggMTY0LjA2IDIxMi45OCAxNzMuMjggMjA0LjA4IDE3My4yNyAyMDQuMDkgMjEyLjU1Ii8+CiAgICAgIDxyZWN0IGNsYXNzPSJjbHMtMSIgeD0iMTAxLjUyIiB5PSIxODMuNjIiIHdpZHRoPSI0OC42NiIgaGVpZ2h0PSI5LjUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC02Mi41MyAzMTQuMjEpIHJvdGF0ZSgtOTApIi8+CiAgICA8L2c+CiAgPC9nPgo8L3N2Zz4=) center/18px no-repeat"></i>Billbook</div>
+    <nav class="tabs">
+      <button data-view="editor" class="on">Editor</button>
+      <button data-view="history">History</button>
+      <button data-view="settings">Settings</button>
+    </nav>
+    <div class="spacer"></div>
+    <span class="dirty hidden" id="dirty">● Unsaved</span>
+    <div id="editorActions" style="display:flex;gap:8px">
+      <button class="btn" id="newQuote">+ Quotation</button>
+      <button class="btn" id="newInvoice">+ Invoice</button>
+      <button class="btn primary" id="saveBtn">Save</button>
+      <button class="btn accent" id="pdfBtn">Export PDF</button>
+    </div>
+  </header>
+
+  <!-- EDITOR -->
+  <main id="v-editor" class="editor">
+    <section class="form" id="form"></section>
+    <section class="previewWrap">
+      <div class="previewBar"><span id="previewLabel">Preview · A4</span><span id="convertSlot"></span></div>
+      <div class="stage" id="stage"><div class="scaler" id="scaler"></div></div>
+    </section>
+  </main>
+
+  <!-- HISTORY -->
+  <main id="v-history" class="page hidden">
+    <div class="stats" id="stats"></div>
+    <div class="filters">
+      <input class="inp search" id="q" placeholder="Search client, number, item…">
+      <select class="inp" id="fType"><option value="">All types</option><option value="invoice">Invoices</option><option value="quote">Quotations</option></select>
+      <select class="inp" id="fStatus"><option value="">Any status</option><option>Draft</option><option>Sent</option><option>Paid</option><option>Overdue</option><option>Accepted</option><option>Declined</option></select>
+    </div>
+    <div id="list"></div>
+  </main>
+
+  <!-- SETTINGS -->
+  <main id="v-settings" class="page hidden">
+    <div class="settings" id="settingsForm"></div>
+  </main>
+</div>
+
+<div id="print"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+const KEY = 'billbook.v1';
+const LOGO = 'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyBpZD0iTGF5ZXJfMiIgZGF0YS1uYW1lPSJMYXllciAyIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMzUuMjcgMjM1LjE5Ij4KICA8ZGVmcz4KICAgIDxzdHlsZT4KICAgICAgLmNscy0xIHsKICAgICAgICBmaWxsOiAjZmZmOwogICAgICB9CiAgICA8L3N0eWxlPgogIDwvZGVmcz4KICA8ZyBpZD0iTGF5ZXJfMS0yIiBkYXRhLW5hbWU9IkxheWVyIDEiPgogICAgPGc+CiAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTIzNS4yNywwdjIzNS4xOHMtMjM1LjI2LDAtMjM1LjI2LDBWMHMyMzUuMjYsMCwyMzUuMjYsMFpNMjIwLjc5LDE0LjM4SDE0LjQzdjIwNi40NGgyMDYuMzVWMTQuMzhaIi8+CiAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTgzLjk1LDEyMi40NmMwLDE2LjY3LTEzLjUxLDMwLjE4LTMwLjE4LDMwLjE4cy0zMC4xOC0xMy41MS0zMC4xOC0zMC4xOCwxMy41MS0zMC4xOCwzMC4xOC0zMC4xOCwzMC4xOCwxMy41MSwzMC4xOCwzMC4xOFpNNjQuMDMsMTM4LjkxYzQuMjQtMi44Nyw2LjktNi43Nyw4LjA1LTExLjUzLDIuMjctOS40Mi0yLjE5LTE5LjIzLTExLjIxLTIyLjk3LTYtMi40OS0xMi43Ni0xLjczLTE4LjEsMi4wNi05LjIxLDYuNTQtMTAuMzEsMjAuOTgtMy4zNiwyOC44NSw2LjIyLDcuMDQsMTYuNjksOC45OCwyNC42MiwzLjZaIi8+CiAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTExOC4wNiwxMjUuNjFsMTMuNSwyNS40Ny0xMi4wNC4wOS0xMy41Ni0yNC44Ny0uMzIsMjQuOS0xMS4wMS0uMDl2LTU3LjQ5czE2LjQ5LjEyLDE2LjQ5LjEyYzMuMi4wMiw2LjIzLjcyLDkuMjIsMS42OCw0Ljc5LDIuNSw3Ljc5LDYuOTcsOC4zNSwxMi4zNC44Niw4LjMzLTIuMDMsMTQuNjktMTAuNjQsMTcuODZaTTExOC4xMywxMTAuNjVjLjE3LTMuMTgtMS43OS01Ljg1LTQuOTYtNS45OGwtNy41MS0uMzF2MTEuNzJjNS45OS0uMDQsMTIuMTYuNiwxMi40Ny01LjQ0WiIvPgogICAgICA8cGF0aCBjbGFzcz0iY2xzLTEiIGQ9Ik0xNjIuMDMsNzEuNThjMi45MS0xLjU3LDUuMDgtMy42Myw3LjU2LTUuODVsNy42MSw3LjhjLTkuMiw5LjA4LTE4LjIxLDEyLjM2LTMwLjg1LDEwLjYzLTguOS0xLjIyLTE2LjQ2LTYuMzctMjAuOTYtMTQuMTMtMy41Ni02LjE1LTQuNDItMTMuMTctMy42MS0yMC4yNSwxLjE3LTEwLjIxLDcuNTItMTguMywxNi43Ni0yMi42NCwxMy4zMi02LjI1LDI5LjQ5LTIuNjMsMzguODQsOC43MWwtNy42OSw3LjI1Yy0yLjY1LTIuNTgtNS41Mi01LTkuMDktNi41LTYuMzUtMi42OC0xMy42MS0yLjUtMTkuNCwxLjM4LTkuOTcsNi42OC0xMS4yNiwyMC4xNS00LjUzLDI4LjgyLDUuNyw3LjMzLDE3LjA0LDkuMjYsMjUuMzYsNC43OFoiLz4KICAgICAgPHBvbHlnb24gY2xhc3M9ImNscy0xIiBwb2ludHM9IjExNC4yNiA1Ny4yMSA5My43NiA1Ny4yMyA5My43MyA3Mi4yMSAxMTQuMjIgNzIuMjEgMTE0LjI1IDgzLjExIDgyLjY0IDgzLjE4IDgyLjYzIDI1LjU2IDExNC4yMiAyNS41NSAxMTQuMjUgMzYuMzkgOTMuNzMgMzYuNDEgOTMuNzQgNDYuNjEgMTE0LjIzIDQ2LjU5IDExNC4yNiA1Ny4yMSIvPgogICAgICA8cG9seWdvbiBjbGFzcz0iY2xzLTEiIHBvaW50cz0iMTc5Ljg0IDIxMi41OCAxNzAuNzEgMjEyLjYxIDE1MC4yNyAxODEuMjUgMTUwLjIzIDIxMi42NiAxNDAuNzkgMjEyLjcgMTQwLjc4IDE2NC4xIDE0OS44MyAxNjQuMSAxNzAuNTYgMTk1Ljk1IDE3MC42MSAxNjQuMDcgMTc5Ljg1IDE2NC4wNyAxNzkuODQgMjEyLjU4Ii8+CiAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTExMy41LDE4OC40NWMwLDE0LjA3LTExLjQxLDI1LjQ4LTI1LjQ4LDI1LjQ4cy0yNS40OC0xMS40MS0yNS40OC0yNS40OCwxMS40MS0yNS40OCwyNS40OC0yNS40OCwyNS40OCwxMS40MSwyNS40OCwyNS40OFpNMTA0LjIxLDE4OC40NWMwLTguOTYtNy4yNy0xNi4yMy0xNi4yMy0xNi4yM3MtMTYuMjMsNy4yNy0xNi4yMywxNi4yMyw3LjI3LDE2LjIzLDE2LjIzLDE2LjIzLDE2LjIzLTcuMjcsMTYuMjMtMTYuMjNaIi8+CiAgICAgIDxwb2x5Z29uIGNsYXNzPSJjbHMtMSIgcG9pbnRzPSI2Mi43IDI1LjU2IDc0LjEgMjUuNTQgNTMuMzIgODMuMTYgNDIuNjcgODMuMTQgMjIuMjggMjUuNTYgMzMuNjcgMjUuNTUgNDguMDggNjYuMTcgNjIuNyAyNS41NiIvPgogICAgICA8cG9seWdvbiBjbGFzcz0iY2xzLTEiIHBvaW50cz0iMjAyLjQ3IDgzLjE0IDE5MS4zIDgzLjE3IDE5MS4zIDM2LjQ4IDE4MS4xMiAzNi40NyAxODEuMTIgMjUuNTQgMjEzIDI1LjU0IDIxMy4wMSAzNi40NyAyMDIuNDcgMzYuNDcgMjAyLjQ3IDgzLjE0Ii8+CiAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTQ2LjA2LDE5MS40NGMtMy4xMi43My02LjM4LjY1LTkuNDIuOHYyMC40M3MtOS4yOS0uMDMtOS4yOS0uMDN2LTQ4LjU3czEzLjQzLjA1LDEzLjQzLjA1bDUuMjMuNjVjNi4zOCwxLjI1LDkuOTYsNi40NCwxMC4yMSwxMi43NC4yNyw2LjUtMy4zMywxMi4zMy0xMC4xNSwxMy45M1pNNDIuMTYsMTgyLjkzYzIuNjItLjA1LDQuNjEtMS42Myw0Ljk0LTMuOS4zMy0yLjI0LS44My00Ljc4LTMuMjctNS4zM3MtNC44NS0uNTYtNy4xOS0uNDh2OS44MXM1LjUyLS4xLDUuNTItLjFaIi8+CiAgICAgIDxwb2x5Z29uIGNsYXNzPSJjbHMtMSIgcG9pbnRzPSIxODkuODQgMTM4Ljk5IDE3OS4zNSAxMjguNTIgMTY5IDEzOC44NyAxNjEuNzggMTMxLjcyIDE3Mi4xNiAxMjEuMzMgMTYxLjcgMTEwLjg3IDE2OC44OSAxMDMuNzEgMTc5LjM4IDExNC4xMiAxODkuODYgMTAzLjY0IDE5Ny4wNSAxMTAuODIgMTg2LjUzIDEyMS4zMyAxOTYuOTkgMTMxLjc4IDE4OS44NCAxMzguOTkiLz4KICAgICAgPHBvbHlnb24gY2xhc3M9ImNscy0xIiBwb2ludHM9IjIwNC4wOSAyMTIuNTUgMTk0LjUxIDIxMi43MSAxOTQuNTEgMTczLjI4IDE4NS45NiAxNzMuMjggMTg1Ljk3IDE2NC4wNiAyMTIuOTggMTY0LjA2IDIxMi45OCAxNzMuMjggMjA0LjA4IDE3My4yNyAyMDQuMDkgMjEyLjU1Ii8+CiAgICAgIDxyZWN0IGNsYXNzPSJjbHMtMSIgeD0iMTAxLjUyIiB5PSIxODMuNjIiIHdpZHRoPSI0OC42NiIgaGVpZ2h0PSI5LjUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC02Mi41MyAzMTQuMjEpIHJvdGF0ZSgtOTApIi8+CiAgICA8L2c+CiAgPC9nPgo8L3N2Zz4=';
+const OLD_LOGOS = ['data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyBpZD0iTGF5ZXJfMiIgZGF0YS1uYW1lPSJMYXllciAyIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMzUuMjcgMjM1LjE5Ij4KICA8ZGVmcz4KICAgIDxzdHlsZT4KICAgICAgLmNscy0xIHsKICAgICAgICBmaWxsOiAjMTExOwogICAgICB9CiAgICA8L3N0eWxlPgogIDwvZGVmcz4KICA8ZyBpZD0iTGF5ZXJfMS0yIiBkYXRhLW5hbWU9IkxheWVyIDEiPgogICAgPGc+CiAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTIzNS4yNywwdjIzNS4xOHMtMjM1LjI2LDAtMjM1LjI2LDBWMHMyMzUuMjYsMCwyMzUuMjYsMFpNMjIwLjc5LDE0LjM4SDE0LjQzdjIwNi40NGgyMDYuMzVWMTQuMzhaIi8+CiAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTgzLjk1LDEyMi40NmMwLDE2LjY3LTEzLjUxLDMwLjE4LTMwLjE4LDMwLjE4cy0zMC4xOC0xMy41MS0zMC4xOC0zMC4xOCwxMy41MS0zMC4xOCwzMC4xOC0zMC4xOCwzMC4xOCwxMy41MSwzMC4xOCwzMC4xOFpNNjQuMDMsMTM4LjkxYzQuMjQtMi44Nyw2LjktNi43Nyw4LjA1LTExLjUzLDIuMjctOS40Mi0yLjE5LTE5LjIzLTExLjIxLTIyLjk3LTYtMi40OS0xMi43Ni0xLjczLTE4LjEsMi4wNi05LjIxLDYuNTQtMTAuMzEsMjAuOTgtMy4zNiwyOC44NSw2LjIyLDcuMDQsMTYuNjksOC45OCwyNC42MiwzLjZaIi8+CiAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTExOC4wNiwxMjUuNjFsMTMuNSwyNS40Ny0xMi4wNC4wOS0xMy41Ni0yNC44Ny0uMzIsMjQuOS0xMS4wMS0uMDl2LTU3LjQ5czE2LjQ5LjEyLDE2LjQ5LjEyYzMuMi4wMiw2LjIzLjcyLDkuMjIsMS42OCw0Ljc5LDIuNSw3Ljc5LDYuOTcsOC4zNSwxMi4zNC44Niw4LjMzLTIuMDMsMTQuNjktMTAuNjQsMTcuODZaTTExOC4xMywxMTAuNjVjLjE3LTMuMTgtMS43OS01Ljg1LTQuOTYtNS45OGwtNy41MS0uMzF2MTEuNzJjNS45OS0uMDQsMTIuMTYuNiwxMi40Ny01LjQ0WiIvPgogICAgICA8cGF0aCBjbGFzcz0iY2xzLTEiIGQ9Ik0xNjIuMDMsNzEuNThjMi45MS0xLjU3LDUuMDgtMy42Myw3LjU2LTUuODVsNy42MSw3LjhjLTkuMiw5LjA4LTE4LjIxLDEyLjM2LTMwLjg1LDEwLjYzLTguOS0xLjIyLTE2LjQ2LTYuMzctMjAuOTYtMTQuMTMtMy41Ni02LjE1LTQuNDItMTMuMTctMy42MS0yMC4yNSwxLjE3LTEwLjIxLDcuNTItMTguMywxNi43Ni0yMi42NCwxMy4zMi02LjI1LDI5LjQ5LTIuNjMsMzguODQsOC43MWwtNy42OSw3LjI1Yy0yLjY1LTIuNTgtNS41Mi01LTkuMDktNi41LTYuMzUtMi42OC0xMy42MS0yLjUtMTkuNCwxLjM4LTkuOTcsNi42OC0xMS4yNiwyMC4xNS00LjUzLDI4LjgyLDUuNyw3LjMzLDE3LjA0LDkuMjYsMjUuMzYsNC43OFoiLz4KICAgICAgPHBvbHlnb24gY2xhc3M9ImNscy0xIiBwb2ludHM9IjExNC4yNiA1Ny4yMSA5My43NiA1Ny4yMyA5My43MyA3Mi4yMSAxMTQuMjIgNzIuMjEgMTE0LjI1IDgzLjExIDgyLjY0IDgzLjE4IDgyLjYzIDI1LjU2IDExNC4yMiAyNS41NSAxMTQuMjUgMzYuMzkgOTMuNzMgMzYuNDEgOTMuNzQgNDYuNjEgMTE0LjIzIDQ2LjU5IDExNC4yNiA1Ny4yMSIvPgogICAgICA8cG9seWdvbiBjbGFzcz0iY2xzLTEiIHBvaW50cz0iMTc5Ljg0IDIxMi41OCAxNzAuNzEgMjEyLjYxIDE1MC4yNyAxODEuMjUgMTUwLjIzIDIxMi42NiAxNDAuNzkgMjEyLjcgMTQwLjc4IDE2NC4xIDE0OS44MyAxNjQuMSAxNzAuNTYgMTk1Ljk1IDE3MC42MSAxNjQuMDcgMTc5Ljg1IDE2NC4wNyAxNzkuODQgMjEyLjU4Ii8+CiAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTExMy41LDE4OC40NWMwLDE0LjA3LTExLjQxLDI1LjQ4LTI1LjQ4LDI1LjQ4cy0yNS40OC0xMS40MS0yNS40OC0yNS40OCwxMS40MS0yNS40OCwyNS40OC0yNS40OCwyNS40OCwxMS40MSwyNS40OCwyNS40OFpNMTA0LjIxLDE4OC40NWMwLTguOTYtNy4yNy0xNi4yMy0xNi4yMy0xNi4yM3MtMTYuMjMsNy4yNy0xNi4yMywxNi4yMyw3LjI3LDE2LjIzLDE2LjIzLDE2LjIzLDE2LjIzLTcuMjcsMTYuMjMtMTYuMjNaIi8+CiAgICAgIDxwb2x5Z29uIGNsYXNzPSJjbHMtMSIgcG9pbnRzPSI2Mi43IDI1LjU2IDc0LjEgMjUuNTQgNTMuMzIgODMuMTYgNDIuNjcgODMuMTQgMjIuMjggMjUuNTYgMzMuNjcgMjUuNTUgNDguMDggNjYuMTcgNjIuNyAyNS41NiIvPgogICAgICA8cG9seWdvbiBjbGFzcz0iY2xzLTEiIHBvaW50cz0iMjAyLjQ3IDgzLjE0IDE5MS4zIDgzLjE3IDE5MS4zIDM2LjQ4IDE4MS4xMiAzNi40NyAxODEuMTIgMjUuNTQgMjEzIDI1LjU0IDIxMy4wMSAzNi40NyAyMDIuNDcgMzYuNDcgMjAyLjQ3IDgzLjE0Ii8+CiAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTQ2LjA2LDE5MS40NGMtMy4xMi43My02LjM4LjY1LTkuNDIuOHYyMC40M3MtOS4yOS0uMDMtOS4yOS0uMDN2LTQ4LjU3czEzLjQzLjA1LDEzLjQzLjA1bDUuMjMuNjVjNi4zOCwxLjI1LDkuOTYsNi40NCwxMC4yMSwxMi43NC4yNyw2LjUtMy4zMywxMi4zMy0xMC4xNSwxMy45M1pNNDIuMTYsMTgyLjkzYzIuNjItLjA1LDQuNjEtMS42Myw0Ljk0LTMuOS4zMy0yLjI0LS44My00Ljc4LTMuMjctNS4zM3MtNC44NS0uNTYtNy4xOS0uNDh2OS44MXM1LjUyLS4xLDUuNTItLjFaIi8+CiAgICAgIDxwb2x5Z29uIGNsYXNzPSJjbHMtMSIgcG9pbnRzPSIxODkuODQgMTM4Ljk5IDE3OS4zNSAxMjguNTIgMTY5IDEzOC44NyAxNjEuNzggMTMxLjcyIDE3Mi4xNiAxMjEuMzMgMTYxLjcgMTEwLjg3IDE2OC44OSAxMDMuNzEgMTc5LjM4IDExNC4xMiAxODkuODYgMTAzLjY0IDE5Ny4wNSAxMTAuODIgMTg2LjUzIDEyMS4zMyAxOTYuOTkgMTMxLjc4IDE4OS44NCAxMzguOTkiLz4KICAgICAgPHBvbHlnb24gY2xhc3M9ImNscy0xIiBwb2ludHM9IjIwNC4wOSAyMTIuNTUgMTk0LjUxIDIxMi43MSAxOTQuNTEgMTczLjI4IDE4NS45NiAxNzMuMjggMTg1Ljk3IDE2NC4wNiAyMTIuOTggMTY0LjA2IDIxMi45OCAxNzMuMjggMjA0LjA4IDE3My4yNyAyMDQuMDkgMjEyLjU1Ii8+CiAgICAgIDxyZWN0IGNsYXNzPSJjbHMtMSIgeD0iMTAxLjUyIiB5PSIxODMuNjIiIHdpZHRoPSI0OC42NiIgaGVpZ2h0PSI5LjUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC02Mi41MyAzMTQuMjEpIHJvdGF0ZSgtOTApIi8+CiAgICA8L2c+CiAgPC9nPgo8L3N2Zz4=','data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyBpZD0iTGF5ZXJfMiIgZGF0YS1uYW1lPSJMYXllciAyIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMzUuMjcgMjM1LjE5Ij4KICA8ZGVmcz4KICAgIDxzdHlsZT4KICAgICAgLmNscy0xIHsKICAgICAgICBmaWxsOiAjMWIxYTFlOwogICAgICB9CiAgICA8L3N0eWxlPgogIDwvZGVmcz4KICA8ZyBpZD0iTGF5ZXJfMS0yIiBkYXRhLW5hbWU9IkxheWVyIDEiPgogICAgPGc+CiAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTIzNS4yNywwdjIzNS4xOHMtMjM1LjI2LDAtMjM1LjI2LDBWMHMyMzUuMjYsMCwyMzUuMjYsMFpNMjIwLjc5LDE0LjM4SDE0LjQzdjIwNi40NGgyMDYuMzVWMTQuMzhaIi8+CiAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTgzLjk1LDEyMi40NmMwLDE2LjY3LTEzLjUxLDMwLjE4LTMwLjE4LDMwLjE4cy0zMC4xOC0xMy41MS0zMC4xOC0zMC4xOCwxMy41MS0zMC4xOCwzMC4xOC0zMC4xOCwzMC4xOCwxMy41MSwzMC4xOCwzMC4xOFpNNjQuMDMsMTM4LjkxYzQuMjQtMi44Nyw2LjktNi43Nyw4LjA1LTExLjUzLDIuMjctOS40Mi0yLjE5LTE5LjIzLTExLjIxLTIyLjk3LTYtMi40OS0xMi43Ni0xLjczLTE4LjEsMi4wNi05LjIxLDYuNTQtMTAuMzEsMjAuOTgtMy4zNiwyOC44NSw2LjIyLDcuMDQsMTYuNjksOC45OCwyNC42MiwzLjZaIi8+CiAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTExOC4wNiwxMjUuNjFsMTMuNSwyNS40Ny0xMi4wNC4wOS0xMy41Ni0yNC44Ny0uMzIsMjQuOS0xMS4wMS0uMDl2LTU3LjQ5czE2LjQ5LjEyLDE2LjQ5LjEyYzMuMi4wMiw2LjIzLjcyLDkuMjIsMS42OCw0Ljc5LDIuNSw3Ljc5LDYuOTcsOC4zNSwxMi4zNC44Niw4LjMzLTIuMDMsMTQuNjktMTAuNjQsMTcuODZaTTExOC4xMywxMTAuNjVjLjE3LTMuMTgtMS43OS01Ljg1LTQuOTYtNS45OGwtNy41MS0uMzF2MTEuNzJjNS45OS0uMDQsMTIuMTYuNiwxMi40Ny01LjQ0WiIvPgogICAgICA8cGF0aCBjbGFzcz0iY2xzLTEiIGQ9Ik0xNjIuMDMsNzEuNThjMi45MS0xLjU3LDUuMDgtMy42Myw3LjU2LTUuODVsNy42MSw3LjhjLTkuMiw5LjA4LTE4LjIxLDEyLjM2LTMwLjg1LDEwLjYzLTguOS0xLjIyLTE2LjQ2LTYuMzctMjAuOTYtMTQuMTMtMy41Ni02LjE1LTQuNDItMTMuMTctMy42MS0yMC4yNSwxLjE3LTEwLjIxLDcuNTItMTguMywxNi43Ni0yMi42NCwxMy4zMi02LjI1LDI5LjQ5LTIuNjMsMzguODQsOC43MWwtNy42OSw3LjI1Yy0yLjY1LTIuNTgtNS41Mi01LTkuMDktNi41LTYuMzUtMi42OC0xMy42MS0yLjUtMTkuNCwxLjM4LTkuOTcsNi42OC0xMS4yNiwyMC4xNS00LjUzLDI4LjgyLDUuNyw3LjMzLDE3LjA0LDkuMjYsMjUuMzYsNC43OFoiLz4KICAgICAgPHBvbHlnb24gY2xhc3M9ImNscy0xIiBwb2ludHM9IjExNC4yNiA1Ny4yMSA5My43NiA1Ny4yMyA5My43MyA3Mi4yMSAxMTQuMjIgNzIuMjEgMTE0LjI1IDgzLjExIDgyLjY0IDgzLjE4IDgyLjYzIDI1LjU2IDExNC4yMiAyNS41NSAxMTQuMjUgMzYuMzkgOTMuNzMgMzYuNDEgOTMuNzQgNDYuNjEgMTE0LjIzIDQ2LjU5IDExNC4yNiA1Ny4yMSIvPgogICAgICA8cG9seWdvbiBjbGFzcz0iY2xzLTEiIHBvaW50cz0iMTc5Ljg0IDIxMi41OCAxNzAuNzEgMjEyLjYxIDE1MC4yNyAxODEuMjUgMTUwLjIzIDIxMi42NiAxNDAuNzkgMjEyLjcgMTQwLjc4IDE2NC4xIDE0OS44MyAxNjQuMSAxNzAuNTYgMTk1Ljk1IDE3MC42MSAxNjQuMDcgMTc5Ljg1IDE2NC4wNyAxNzkuODQgMjEyLjU4Ii8+CiAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTExMy41LDE4OC40NWMwLDE0LjA3LTExLjQxLDI1LjQ4LTI1LjQ4LDI1LjQ4cy0yNS40OC0xMS40MS0yNS40OC0yNS40OCwxMS40MS0yNS40OCwyNS40OC0yNS40OCwyNS40OCwxMS40MSwyNS40OCwyNS40OFpNMTA0LjIxLDE4OC40NWMwLTguOTYtNy4yNy0xNi4yMy0xNi4yMy0xNi4yM3MtMTYuMjMsNy4yNy0xNi4yMywxNi4yMyw3LjI3LDE2LjIzLDE2LjIzLDE2LjIzLDE2LjIzLTcuMjcsMTYuMjMtMTYuMjNaIi8+CiAgICAgIDxwb2x5Z29uIGNsYXNzPSJjbHMtMSIgcG9pbnRzPSI2Mi43IDI1LjU2IDc0LjEgMjUuNTQgNTMuMzIgODMuMTYgNDIuNjcgODMuMTQgMjIuMjggMjUuNTYgMzMuNjcgMjUuNTUgNDguMDggNjYuMTcgNjIuNyAyNS41NiIvPgogICAgICA8cG9seWdvbiBjbGFzcz0iY2xzLTEiIHBvaW50cz0iMjAyLjQ3IDgzLjE0IDE5MS4zIDgzLjE3IDE5MS4zIDM2LjQ4IDE4MS4xMiAzNi40NyAxODEuMTIgMjUuNTQgMjEzIDI1LjU0IDIxMy4wMSAzNi40NyAyMDIuNDcgMzYuNDcgMjAyLjQ3IDgzLjE0Ii8+CiAgICAgIDxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTQ2LjA2LDE5MS40NGMtMy4xMi43My02LjM4LjY1LTkuNDIuOHYyMC40M3MtOS4yOS0uMDMtOS4yOS0uMDN2LTQ4LjU3czEzLjQzLjA1LDEzLjQzLjA1bDUuMjMuNjVjNi4zOCwxLjI1LDkuOTYsNi40NCwxMC4yMSwxMi43NC4yNyw2LjUtMy4zMywxMi4zMy0xMC4xNSwxMy45M1pNNDIuMTYsMTgyLjkzYzIuNjItLjA1LDQuNjEtMS42Myw0Ljk0LTMuOS4zMy0yLjI0LS44My00Ljc4LTMuMjctNS4zM3MtNC44NS0uNTYtNy4xOS0uNDh2OS44MXM1LjUyLS4xLDUuNTItLjFaIi8+CiAgICAgIDxwb2x5Z29uIGNsYXNzPSJjbHMtMSIgcG9pbnRzPSIxODkuODQgMTM4Ljk5IDE3OS4zNSAxMjguNTIgMTY5IDEzOC44NyAxNjEuNzggMTMxLjcyIDE3Mi4xNiAxMjEuMzMgMTYxLjcgMTEwLjg3IDE2OC44OSAxMDMuNzEgMTc5LjM4IDExNC4xMiAxODkuODYgMTAzLjY0IDE5Ny4wNSAxMTAuODIgMTg2LjUzIDEyMS4zMyAxOTYuOTkgMTMxLjc4IDE4OS44NCAxMzguOTkiLz4KICAgICAgPHBvbHlnb24gY2xhc3M9ImNscy0xIiBwb2ludHM9IjIwNC4wOSAyMTIuNTUgMTk0LjUxIDIxMi43MSAxOTQuNTEgMTczLjI4IDE4NS45NiAxNzMuMjggMTg1Ljk3IDE2NC4wNiAyMTIuOTggMTY0LjA2IDIxMi45OCAxNzMuMjggMjA0LjA4IDE3My4yNyAyMDQuMDkgMjEyLjU1Ii8+CiAgICAgIDxyZWN0IGNsYXNzPSJjbHMtMSIgeD0iMTAxLjUyIiB5PSIxODMuNjIiIHdpZHRoPSI0OC42NiIgaGVpZ2h0PSI5LjUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC02Mi41MyAzMTQuMjEpIHJvdGF0ZSgtOTApIi8+CiAgICA8L2c+CiAgPC9nPgo8L3N2Zz4='];
+const CURRENCIES = ['LKR','USD','QAR','AED','EUR','GBP','INR','AUD','SGD'];
+const INV_STATUS = ['Draft','Sent','Paid'];
+const QT_STATUS  = ['Draft','Sent','Accepted','Declined'];
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+const today = () => new Date().toISOString().slice(0, 10);
+const addDays = (d, n) => { const x = new Date(d + 'T00:00:00'); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'}) : '—';
+const money = (n, cur) => { try { return new Intl.NumberFormat('en-US', {style:'currency', currency:cur || 'LKR', minimumFractionDigits:2}).format(n || 0); } catch { return (cur||'') + ' ' + (n||0).toFixed(2); } };
+const clone = o => JSON.parse(JSON.stringify(o));
+
+/* ---------------- Storage ---------------- */
+const defaultSettings = {
+  name:'VECTOR POINT', tagline:'Motion & Visual Design', email:'designvectorpint@gmail.com', phone:'+94 70 44 22 647',
+  address:'Colombo, Sri Lanka', website:'www.dilshard.com', logo:LOGO, accent:'#ff5a1f',
+  currency:'LKR', taxLabel:'Tax', taxRate:0, invPrefix:'INV', qtPrefix:'QT', invDays:14, qtDays:30,
+  bank:'Bank: HNB\nAccount name: M.D. Sayar\nAccount no: 027020199735\nBranch: HNB – Mirihana Branch',
+  invNotes:'', qtNotes:'50% advance required to commence work. Balance on delivery.\nIncludes 2 rounds of revisions.',
+  footer:'Thank you for\ntrusting us'
+};
+let db = { settings: clone(defaultSettings), docs: [] };
+let storageOK = true;
+
+function load(){
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) { const d = JSON.parse(raw); db.settings = {...defaultSettings, ...d.settings}; if (db.settings.name === 'Popcorn Inc.') ['name','tagline','email','phone','website','footer'].forEach(k => db.settings[k] = defaultSettings[k]);
+    if (OLD_LOGOS.includes(db.settings.logo)) db.settings.logo = LOGO;
+    if (db.settings.footer === 'Thank you — VECTOR POINT') db.settings.footer = defaultSettings.footer;
+    if (db.settings.invNotes === 'Thank you for your business!') db.settings.invNotes = '';
+    if (!db.settings.website) db.settings.website = defaultSettings.website;
+    if (!db.settings.phone) db.settings.phone = defaultSettings.phone;
+    if (!db.settings.email) db.settings.email = defaultSettings.email;
+    if ((db.settings.bank||'').includes('0000 0000 0000')) db.settings.bank = defaultSettings.bank; db.docs = d.docs || []; return; }
+  } catch { storageOK = false; }
+  seed();
+}
+function persist(){
+  try { localStorage.setItem(KEY, JSON.stringify(db)); }
+  catch(e){ storageOK = false; toast('Could not save to this browser'); }
+}
+
+/* ---------------- Docs ---------------- */
+function nextNumber(type){
+  const p = type === 'invoice' ? db.settings.invPrefix : db.settings.qtPrefix;
+  const y = new Date().getFullYear();
+  const re = new RegExp('^' + p.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '-' + y + '-(\\d+)$');
+  let max = 0;
+  db.docs.forEach(d => { const m = d.type === type && d.number.match(re); if (m) max = Math.max(max, +m[1]); });
+  return `${p}-${y}-${String(max + 1).padStart(3, '0')}`;
+}
+function blankDoc(type){
+  const s = db.settings, d = today();
+  return { id: uid(), type, number: nextNumber(type), status:'Draft', issueDate:d,
+    dueDate: addDays(d, type === 'invoice' ? +s.invDays : +s.qtDays),
+    currency: s.currency, project:'',
+    client:{name:'', company:'', email:'', address:''},
+    items:[{desc:'', detail:'', qty:1, rate:0}],
+    discount:0, taxRate:+s.taxRate || 0,
+    notes: type === 'invoice' ? s.invNotes : s.qtNotes,
+    createdAt: Date.now(), updatedAt: Date.now() };
+}
+function totals(doc){
+  const sub = doc.items.reduce((a, i) => a + (+i.qty || 0) * (+i.rate || 0), 0);
+  const disc = sub * (+doc.discount || 0) / 100;
+  const tax = (sub - disc) * (+doc.taxRate || 0) / 100;
+  return { sub, disc, tax, total: sub - disc + tax };
+}
+function effStatus(doc){
+  if (doc.type === 'invoice' && doc.status === 'Sent' && doc.dueDate && doc.dueDate < today()) return 'Overdue';
+  return doc.status;
+}
+function seed(){
+  const y = new Date().getFullYear();
+  const mk = (type, n, status, issue, client, items, extra={}) => ({...blankDoc(type), notes: type==='invoice' ? '' : db.settings.qtNotes, number:`${type==='invoice'?'INV':'QT'}-${y}-00${n}`, status, issueDate:issue,
+    dueDate:addDays(issue, type==='invoice'?14:30), client, items, ...extra});
+  const c1 = {name:'Amaya Perera', company:'Lumen Coffee Co.', email:'amaya@lumen.example', address:'12 Galle Road\nColombo 03'};
+  const c2 = {name:'Ravi Fernando', company:'Northwind Studio', email:'ravi@northwind.example', address:'45 Ward Place\nColombo 07'};
+  db.docs = [
+    mk('quote', 1, 'Accepted', addDays(today(), -40), c1, [
+      {desc:'Brand film — 30s motion piece', detail:'Concept, storyboard, animation, sound design', qty:1, rate:180000},
+      {desc:'Social cutdowns', detail:'3 × 9:16 edits for Reels / TikTok', qty:3, rate:15000}], {project:'Autumn Launch Campaign'}),
+    mk('invoice', 1, 'Paid', addDays(today(), -30), c1, [
+      {desc:'Brand film — 30s motion piece', detail:'Concept, storyboard, animation, sound design', qty:1, rate:180000},
+      {desc:'Social cutdowns', detail:'3 × 9:16 edits for Reels / TikTok', qty:3, rate:15000}], {project:'Autumn Launch Campaign', convertedFrom:`QT-${y}-001`}),
+    mk('invoice', 2, 'Sent', addDays(today(), -5), c2, [
+      {desc:'Website design', detail:'5-page marketing site, desktop + mobile', qty:1, rate:250000},
+      {desc:'Meta ads management', detail:'Monthly retainer', qty:1, rate:60000}], {project:'Website Refresh'}),
+  ];
+  persist();
+}
+
+/* ---------------- State ---------------- */
+let cur = null;      // doc being edited
+let dirty = false;
+function setDirty(v){ dirty = v; $('#dirty').classList.toggle('hidden', !v); }
+function openDoc(doc){ cur = clone(doc); renderForm(); renderPreview(); setDirty(false); show('editor'); }
+function newDoc(type){
+  const go = () => { cur = blankDoc(type); renderForm(); renderPreview(); setDirty(false); show('editor'); };
+  dirty ? confirmBox('Discard unsaved changes?', go, 'Discard') : go();
+}
+function saveCur(silent){
+  cur.updatedAt = Date.now();
+  const i = db.docs.findIndex(d => d.id === cur.id);
+  if (i >= 0) db.docs[i] = clone(cur); else db.docs.unshift(clone(cur));
+  persist(); setDirty(false); renderConvert();
+  if (!silent) toast(`${cur.number} saved`);
+}
+
+/* ---------------- Editor form ---------------- */
+function field(label, key, opts={}){
+  const v = get(cur, key);
+  const cls = opts.full ? 'f full' : 'f';
+  if (opts.type === 'textarea') return `<label class="${cls}">${label}<textarea data-k="${key}" rows="${opts.rows||3}" placeholder="${opts.ph||''}">${esc(v)}</textarea></label>`;
+  if (opts.type === 'select') return `<label class="${cls}">${label}<select data-k="${key}">${opts.options.map(o=>`<option ${o==v?'selected':''}>${o}</option>`).join('')}</select></label>`;
+  return `<label class="${cls}">${label}<input data-k="${key}" type="${opts.type||'text'}" value="${esc(v)}" placeholder="${opts.ph||''}" ${opts.list?`list="${opts.list}"`:''} ${opts.step?`step="${opts.step}"`:''}></label>`;
+}
+function get(o, path){ return path.split('.').reduce((a, k) => a?.[k], o); }
+function set(o, path, v){ const ks = path.split('.'); const last = ks.pop(); ks.reduce((a,k)=>a[k], o)[last] = v; }
+
+function clients(){
+  const m = new Map();
+  db.docs.forEach(d => { const k = (d.client.company || d.client.name).trim(); if (k && !m.has(k)) m.set(k, d.client); });
+  return m;
+}
+
+function renderForm(){
+  const isInv = cur.type === 'invoice';
+  const cl = clients();
+  $('#form').innerHTML = `
+  <div class="card">
+    <div class="seg"><button data-type="quote" class="${!isInv?'on':''}">Quotation</button><button data-type="invoice" class="${isInv?'on':''}">Invoice</button></div>
+    <div class="grid">
+      ${field('Number','number')}
+      ${field('Status','status',{type:'select',options:isInv?INV_STATUS:QT_STATUS})}
+      ${field('Issue date','issueDate',{type:'date'})}
+      ${field(isInv?'Due date':'Valid until','dueDate',{type:'date'})}
+      ${field('Project / Reference','project',{ph:'e.g. Brand film'})}
+      ${field('Currency','currency',{type:'select',options:CURRENCIES})}
+    </div>
+  </div>
+  <div class="card">
+    <h3>Bill to</h3>
+    <div class="grid">
+      ${field('Company','client.company',{list:'clientList', ph:'Start typing to reuse a client'})}
+      ${field('Contact name','client.name')}
+      ${field('Email','client.email',{full:true})}
+      ${field('Address','client.address',{type:'textarea',full:true,rows:2})}
+    </div>
+    <datalist id="clientList">${[...cl.keys()].map(k=>`<option value="${esc(k)}">`).join('')}</datalist>
+  </div>
+  <div class="card">
+    <h3>Line items <button class="btn sm" id="addItem">+ Add item</button></h3>
+    <div class="ihead"><span>Description</span><span>Qty</span><span>Rate</span><span></span></div>
+    <div class="items" id="items"></div>
+  </div>
+  <div class="card">
+    <h3>Adjustments</h3>
+    <div class="grid">
+      ${field('Discount %','discount',{type:'number',step:'any'})}
+      ${field((db.settings.taxLabel||'Tax')+' %','taxRate',{type:'number',step:'any'})}
+    </div>
+  </div>
+  <div class="card">
+    <h3>Notes & terms</h3>
+    ${field('','notes',{type:'textarea',full:true,rows:4})}
+  </div>
+  ${db.docs.some(d=>d.id===cur.id) ? `<div style="text-align:right"><button class="btn ghost danger sm" id="delCur">Delete this ${isInv?'invoice':'quotation'}</button></div>`:''}
+  `;
+  renderItems();
+  renderConvert();
+}
+function renderItems(){
+  $('#items').innerHTML = cur.items.map((it, i) => `
+    <div class="item" data-i="${i}">
+      <input class="inp d" data-ik="desc" value="${esc(it.desc)}" placeholder="Item / service">
+      <input class="inp" data-ik="qty" type="number" step="any" value="${it.qty}">
+      <input class="inp" data-ik="rate" type="number" step="any" value="${it.rate}">
+      <button class="x" data-del="${i}" title="Remove">×</button>
+      <input class="inp detail" data-ik="detail" value="${esc(it.detail)}" placeholder="Details (optional)">
+      <div class="amt">${money((+it.qty||0)*(+it.rate||0), cur.currency)}</div>
+    </div>`).join('');
+}
+
+$('#form').addEventListener('input', e => {
+  const t = e.target;
+  if (t.dataset.k){
+    const num = t.type === 'number';
+    set(cur, t.dataset.k, num ? (t.value === '' ? 0 : +t.value) : t.value);
+    if (t.dataset.k === 'client.company'){
+      const c = clients().get(t.value.trim());
+      if (c){ cur.client = {...c}; ['name','email','address'].forEach(k => { const el = $(`[data-k="client.${k}"]`); if (el) el.value = c[k] || ''; }); }
+    }
+    if (t.dataset.k === 'currency') renderItems();
+  } else if (t.dataset.ik){
+    const row = t.closest('.item'), i = +row.dataset.i;
+    cur.items[i][t.dataset.ik] = t.type === 'number' ? (t.value === '' ? 0 : +t.value) : t.value;
+    row.querySelector('.amt').textContent = money((+cur.items[i].qty||0)*(+cur.items[i].rate||0), cur.currency);
+  } else return;
+  setDirty(true); renderPreview();
+});
+$('#form').addEventListener('change', e => { if (e.target.dataset.k === 'status' || e.target.dataset.k === 'currency') { setDirty(true); renderPreview(); }});
+$('#form').addEventListener('click', e => {
+  const t = e.target;
+  if (t.id === 'addItem'){ cur.items.push({desc:'', detail:'', qty:1, rate:0}); renderItems(); setDirty(true); renderPreview(); $('#items .item:last-child .d').focus(); }
+  if (t.dataset.del !== undefined){ cur.items.splice(+t.dataset.del, 1); if (!cur.items.length) cur.items.push({desc:'',detail:'',qty:1,rate:0}); renderItems(); setDirty(true); renderPreview(); }
+  if (t.dataset.type && t.dataset.type !== cur.type){
+    const isNew = !db.docs.some(d => d.id === cur.id);
+    cur.type = t.dataset.type;
+    if (isNew){ cur.number = nextNumber(cur.type); cur.notes = cur.type==='invoice'?db.settings.invNotes:db.settings.qtNotes; cur.dueDate = addDays(cur.issueDate, cur.type==='invoice'?+db.settings.invDays:+db.settings.qtDays); }
+    if (!(cur.type==='invoice'?INV_STATUS:QT_STATUS).includes(cur.status)) cur.status = 'Draft';
+    renderForm(); renderPreview(); setDirty(true);
+  }
+  if (t.id === 'delCur') confirmBox(`Delete ${cur.number}? This can't be undone.`, () => { db.docs = db.docs.filter(d => d.id !== cur.id); persist(); setDirty(false); cur = blankDoc('invoice'); renderForm(); renderPreview(); toast('Deleted'); }, 'Delete');
+});
+
+function renderConvert(){
+  const saved = db.docs.some(d => d.id === cur.id);
+  $('#convertSlot').innerHTML = cur.type === 'quote' && saved ? `<button class="btn sm" id="convertBtn">Convert to invoice →</button>` : (cur.convertedFrom ? `From ${esc(cur.convertedFrom)}` : '');
+}
+document.addEventListener('click', e => { if (e.target.id === 'convertBtn') convert(cur.id); });
+
+function convert(id){
+  const q = db.docs.find(d => d.id === id); if (!q) return;
+  const go = () => {
+    q.status = 'Accepted'; q.updatedAt = Date.now();
+    const inv = {...clone(q), id: uid(), type:'invoice', number: nextNumber('invoice'), status:'Draft', issueDate: today(),
+      dueDate: addDays(today(), +db.settings.invDays), notes: db.settings.invNotes, convertedFrom: q.number, createdAt: Date.now(), updatedAt: Date.now()};
+    db.docs.unshift(inv); persist(); setDirty(false); openDoc(inv); toast(`Created ${inv.number} from ${q.number}`);
+  };
+  if (dirty && cur.id === id){ saveCur(true); }
+  go();
+}
+
+/* ---------------- Document render ---------------- */
+function docHTML(doc){
+  const s = db.settings, t = totals(doc), isInv = doc.type === 'invoice', c = doc.client;
+  const st = effStatus(doc), m = v => money(v, doc.currency);
+  const bill = [c.company || c.name || 'Client name', c.company && c.name ? c.name : '', c.address, c.email].filter(Boolean).join('\n');
+  const url = w => /^https?:\/\//.test(w) ? w : 'https://' + w;
+  const me = [s.address && 'Address: ' + esc(s.address), s.phone && 'Phone: ' + esc(s.phone),
+    s.email && `Email: <a href="mailto:${esc(s.email)}">${esc(s.email)}</a>`,
+    s.website && `Web: <a href="${esc(url(s.website))}">${esc(s.website)}</a>`].filter(Boolean).join('\n');
+  const rows = doc.items.filter(i => i.desc || i.rate);
+  return `
+  <div class="sheet">
+    <div class="s-head">
+      <h1 class="${isInv ? '' : 'long'}">${isInv ? 'Invoice' : 'Quotation'}</h1>
+      <div class="s-meta">
+        ${s.logo ? `<img class="logo" src="${s.logo}" alt="">` : ''}
+        <div>${fmtDate(doc.issueDate)}</div>
+        <div><b>${isInv ? 'Invoice' : 'Quotation'} No. ${esc(doc.number)}</b></div>
+        <div>${isInv ? 'Due' : 'Valid until'}: ${fmtDate(doc.dueDate)}</div>
+        ${doc.convertedFrom ? `<div>Quote ref: ${esc(doc.convertedFrom)}</div>` : ''}
+      </div>
+    </div>
+    <hr class="rule" style="margin-top:22px">
+    <div class="s-bill">
+      <div><div class="lbl">${isInv ? 'Billed to:' : 'Prepared for:'}</div><div class="val">${esc(bill)}</div></div>
+      ${doc.project ? `<div class="proj"><div class="lbl">Project:</div><div class="val">${esc(doc.project)}</div></div>` : ''}
+    </div>
+    <hr class="rule">
+    <div class="s-gap" style="height:${isInv ? 100 : 56}px"></div>
+    <table class="s-items">
+      <thead><tr><th>Description</th><th class="num">Rate</th><th class="c">Qty</th><th class="num">Amount</th></tr></thead>
+      <tbody>${rows.map(i => `
+        <tr><td>${esc(i.desc)}${i.detail ? `<div class="det">${esc(i.detail)}</div>` : ''}</td>
+        <td class="num">${m(i.rate)}</td><td class="c">${+i.qty || 0}</td><td class="num">${m((+i.qty||0)*(+i.rate||0))}</td></tr>`).join('') ||
+        `<tr><td colspan="4" style="color:#999">Add line items to see them here</td></tr>`}
+      </tbody>
+    </table>
+    <div class="s-lower">
+      <div class="s-notes">${isInv && st === 'Paid' ? '<div class="stamp">PAID</div>' : ''}${doc.notes ? `<div class="lbl">${isInv ? 'Notes' : 'Terms'}</div>${esc(doc.notes)}` : ''}</div>
+      <div class="s-tot">
+        <div class="r"><span>Subtotal</span><span>${m(t.sub)}</span></div>
+        ${+doc.discount ? `<div class="r"><span>Discount (${+doc.discount}%)</span><span>− ${m(t.disc)}</span></div>` : ''}
+        <div class="r"><span>${esc(s.taxLabel||'Tax')} (${+doc.taxRate || 0}%)</span><span>${m(t.tax)}</span></div>
+        <div class="r grand"><span>Total</span><b>${m(t.total)}</b></div>
+      </div>
+    </div>
+    ${!isInv ? `<div class="s-sign"><div>Accepted by (name & signature)</div><div>Date</div></div>` : ''}
+    <div class="s-foot">
+      <hr class="rule">
+      <div class="cols">
+        <div>${isInv && s.bank ? `<div class="lbl">Payment Information</div><div class="val">${esc(s.bank)}</div>` : ''}</div>
+        <div><div class="lbl">${esc(s.name)}</div><div class="val">${me}</div></div>
+      </div>
+      <hr class="rule">
+    </div>
+  </div>`;
+}
+function renderPreview(){
+  $('#scaler').innerHTML = docHTML(cur);
+  $('#previewLabel').textContent = `Preview · A4 · ${cur.number}`;
+  fit();
+}
+function fit(){
+  const stage = $('#stage'), sc = $('#scaler'), sheet = sc.firstElementChild;
+  if (!sheet) return;
+  const k = Math.min(1, stage.clientWidth / 794);
+  sc.style.transform = `scale(${k})`;
+  stage.style.height = sheet.offsetHeight * k + 'px';
+}
+new ResizeObserver(fit).observe($('#stage'));
+
+/* ---------------- PDF ---------------- */
+function exportPDF(doc){
+  $('#print').innerHTML = docHTML(doc);
+  const old = document.title;
+  const who = (doc.client.company || doc.client.name || '').replace(/[\\/:*?"<>|]/g, '');
+  document.title = `${doc.number}${who ? ' - ' + who : ''}`;   // becomes the PDF filename
+  const restore = () => { document.title = old; window.removeEventListener('afterprint', restore); };
+  window.addEventListener('afterprint', restore);
+  try { window.print(); } catch { toast('Printing is blocked here — open the page directly'); }
+  setTimeout(restore, 1500);
+}
+window.addEventListener('beforeprint', () => { if (!$('#print').innerHTML && cur) $('#print').innerHTML = docHTML(cur); });
+window.addEventListener('afterprint', () => { $('#print').innerHTML = ''; });
+
+/* ---------------- History ---------------- */
+function renderHistory(){
+  const q = $('#q').value.toLowerCase().trim(), ft = $('#fType').value, fs = $('#fStatus').value;
+  const docs = [...db.docs].sort((a, b) => (b.issueDate||'').localeCompare(a.issueDate||'') || b.createdAt - a.createdAt);
+
+  // stats per currency
+  const sum = (filter) => { const m = {}; db.docs.filter(filter).forEach(d => { m[d.currency] = (m[d.currency]||0) + totals(d).total; }); return Object.entries(m).map(([c,v]) => money(v,c)).join('<br>') || money(0, db.settings.currency); };
+  const yr = String(new Date().getFullYear());
+  $('#stats').innerHTML = `
+    <div class="stat"><small>Paid this year</small><div>${sum(d=>d.type==='invoice'&&d.status==='Paid'&&(d.issueDate||'').startsWith(yr))}</div></div>
+    <div class="stat"><small>Outstanding</small><div>${sum(d=>d.type==='invoice'&&d.status==='Sent')}</div><em>${db.docs.filter(d=>effStatus(d)==='Overdue').length} overdue</em></div>
+    <div class="stat"><small>Open quotations</small><div>${sum(d=>d.type==='quote'&&['Draft','Sent'].includes(d.status))}</div></div>
+    <div class="stat"><small>Documents</small><div>${db.docs.length}</div><em>${db.docs.filter(d=>d.type==='invoice').length} invoices · ${db.docs.filter(d=>d.type==='quote').length} quotes</em></div>`;
+
+  const rows = docs.filter(d => {
+    if (ft && d.type !== ft) return false;
+    if (fs && effStatus(d) !== fs) return false;
+    if (q){ const hay = [d.number, d.client.company, d.client.name, d.project, ...d.items.map(i=>i.desc)].join(' ').toLowerCase(); if (!hay.includes(q)) return false; }
+    return true;
+  });
+  if (!rows.length){ $('#list').innerHTML = `<div class="empty card">${db.docs.length ? 'Nothing matches those filters.' : 'No documents yet — create a quotation or invoice to get started.'}</div>`; return; }
+  $('#list').innerHTML = `<table class="list"><thead><tr><th>Number</th><th>Type</th><th>Client</th><th>Issued</th><th>Due / Valid</th><th class="r">Amount</th><th>Status</th><th></th></tr></thead><tbody>
+  ${rows.map(d => { const st = effStatus(d), opts = d.type==='invoice'?INV_STATUS:QT_STATUS; return `
+    <tr data-id="${d.id}">
+      <td><b>${esc(d.number)}</b>${d.project?`<div class="hint">${esc(d.project)}</div>`:''}</td>
+      <td><span class="tag ${d.type}">${d.type==='invoice'?'Invoice':'Quote'}</span></td>
+      <td>${esc(d.client.company || d.client.name || '—')}</td>
+      <td>${fmtDate(d.issueDate)}</td><td>${fmtDate(d.dueDate)}</td>
+      <td class="r"><b>${money(totals(d).total, d.currency)}</b></td>
+      <td><select class="status ${st}" data-act="status">${opts.map(o=>`<option ${o===d.status?'selected':''}>${o}</option>`).join('')}${st==='Overdue'?'<option selected disabled>Overdue</option>':''}</select></td>
+      <td><div class="acts">
+        <button class="btn sm" data-act="open">Open</button>
+        <button class="btn sm" data-act="pdf">PDF</button>
+        ${d.type==='quote'?'<button class="btn sm" data-act="convert" title="Convert to invoice">→ Invoice</button>':''}
+        <button class="btn sm ghost" data-act="dup" title="Duplicate">⧉</button>
+        <button class="btn sm ghost danger" data-act="del" title="Delete">✕</button>
+      </div></td>
+    </tr>`; }).join('')}
+  </tbody></table>`;
+}
+['#q','#fType','#fStatus'].forEach(s => $(s).addEventListener('input', renderHistory));
+$('#list').addEventListener('click', e => {
+  const act = e.target.dataset.act; if (!act || act === 'status') return;
+  const id = e.target.closest('tr').dataset.id, d = db.docs.find(x => x.id === id);
+  const guard = fn => (dirty && cur.id !== id) ? confirmBox('Discard unsaved changes in the editor?', fn, 'Discard') : fn();
+  if (act === 'open') guard(() => openDoc(d));
+  if (act === 'pdf') exportPDF(d);
+  if (act === 'convert') guard(() => convert(id));
+  if (act === 'dup') guard(() => { const n = {...clone(d), id:uid(), number:nextNumber(d.type), status:'Draft', issueDate:today(), dueDate:addDays(today(), d.type==='invoice'?+db.settings.invDays:+db.settings.qtDays), convertedFrom:undefined, createdAt:Date.now(), updatedAt:Date.now()}; cur = n; renderForm(); renderPreview(); setDirty(true); show('editor'); toast('Duplicated — save to keep it'); });
+  if (act === 'del') confirmBox(`Delete ${d.number}? This can't be undone.`, () => { db.docs = db.docs.filter(x => x.id !== id); persist(); renderHistory(); toast('Deleted'); }, 'Delete');
+});
+$('#list').addEventListener('change', e => {
+  if (e.target.dataset.act !== 'status') return;
+  const id = e.target.closest('tr').dataset.id, d = db.docs.find(x => x.id === id);
+  d.status = e.target.value; d.updatedAt = Date.now(); persist();
+  if (cur && cur.id === id) cur.status = d.status;
+  renderHistory(); toast(`${d.number} → ${d.status}`);
+});
+
+/* ---------------- Settings ---------------- */
+function renderSettings(){
+  const s = db.settings;
+  const f = (label, k, type='text', extra='') => `<label class="f ${extra}">${label}${type==='textarea'
+    ? `<textarea data-s="${k}" rows="4">${esc(s[k])}</textarea>`
+    : `<input data-s="${k}" type="${type}" value="${esc(s[k])}">`}</label>`;
+  $('#settingsForm').innerHTML = `
+  <div class="card"><h3>Your business</h3><div class="grid">
+    ${f('Business name','name')}${f('Tagline','tagline')}
+    ${f('Email','email')}${f('Phone','phone')}
+    ${f('Website','website')}${f('Address','address')}
+    <div class="f full">Logo<div class="logoBox">${s.logo?`<img src="${s.logo}">`:'<span class="hint">No logo — your business name is shown instead.</span>'}
+      <label class="btn sm">Upload<input type="file" accept="image/*" id="logoIn" hidden></label>${s.logo?'<button class="btn sm ghost danger" id="logoRm">Remove</button>':''}</div>
+      <span class="hint">The page is black, so use a white or light logo (PNG or SVG with a transparent background).</span></div>
+  </div></div>
+  <div class="card"><h3>Defaults</h3><div class="grid">
+    <label class="f">Default currency<select data-s="currency">${CURRENCIES.map(c=>`<option ${c===s.currency?'selected':''}>${c}</option>`).join('')}</select></label>
+    ${f('Tax label (VAT, SSCL…)','taxLabel')}
+    ${f('Default tax %','taxRate','number')}
+    <span></span>
+    ${f('Invoice prefix','invPrefix')}${f('Quotation prefix','qtPrefix')}
+    ${f('Invoice due in (days)','invDays','number')}${f('Quote valid for (days)','qtDays','number')}
+  </div></div>
+  <div class="card"><h3>Text</h3><div class="grid">
+    ${f('Payment / bank details (invoices)','bank','textarea','full')}
+    ${f('Default invoice notes','invNotes','textarea','full')}
+    ${f('Default quotation terms','qtNotes','textarea','full')}
+  </div></div>
+  <div class="card"><h3>Data & backup</h3>
+    <p class="hint" style="margin-top:0">History is stored in this browser only${storageOK?'':' (storage is unavailable here, so nothing will be kept)'}. Download a backup now and then, and import it to move to another computer.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" id="bkOut">Download backup (.json)</button>
+      <label class="btn">Import backup<input type="file" accept=".json,application/json" id="bkIn" hidden></label>
+      <button class="btn ghost danger" id="wipe">Erase all data</button>
+    </div>
+  </div>`;
+}
+$('#settingsForm').addEventListener('input', e => {
+  const k = e.target.dataset.s; if (!k) return;
+  db.settings[k] = e.target.type === 'number' ? +e.target.value : e.target.value;
+  persist();
+});
+$('#settingsForm').addEventListener('change', e => {
+  if (e.target.id === 'logoIn' && e.target.files[0]){
+    const file = e.target.files[0];
+    if (file.size > 600000) return toast('Logo is large — keep it under ~600 KB');
+    const r = new FileReader(); r.onload = () => { db.settings.logo = r.result; persist(); renderSettings(); toast('Logo updated'); }; r.readAsDataURL(file);
+  }
+  if (e.target.id === 'bkIn' && e.target.files[0]){
+    const r = new FileReader(); r.onload = () => {
+      try { const d = JSON.parse(r.result); if (!Array.isArray(d.docs)) throw 0;
+        confirmBox(`Import ${d.docs.length} documents? This replaces what's in this browser.`, () => { db = {settings:{...defaultSettings, ...d.settings}, docs:d.docs}; persist(); renderSettings(); toast('Backup imported'); }, 'Import');
+      } catch { toast('That file isn\'t a Billbook backup'); }
+    }; r.readAsText(e.target.files[0]);
+  }
+});
+$('#settingsForm').addEventListener('click', e => {
+  if (e.target.id === 'logoRm'){ db.settings.logo = ''; persist(); renderSettings(); }
+  if (e.target.id === 'bkOut'){
+    const blob = new Blob([JSON.stringify(db, null, 2)], {type:'application/json'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `billbook-backup-${today()}.json`; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  if (e.target.id === 'wipe') confirmBox('Erase every quotation, invoice and setting in this browser?', () => { db = {settings:clone(defaultSettings), docs:[]}; persist(); renderSettings(); cur = blankDoc('invoice'); setDirty(false); toast('All data erased'); }, 'Erase');
+});
+
+/* ---------------- UI helpers ---------------- */
+function show(view){
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.view === view));
+  ['editor','history','settings'].forEach(v => $('#v-' + v).classList.toggle('hidden', v !== view));
+  $('#editorActions').style.visibility = view === 'editor' ? 'visible' : 'hidden';
+  if (view === 'history') renderHistory();
+  if (view === 'settings') renderSettings();
+  if (view === 'editor'){ renderForm(); renderPreview(); }
+}
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => show(b.dataset.view));
+$('#newQuote').onclick = () => newDoc('quote');
+$('#newInvoice').onclick = () => newDoc('invoice');
+$('#saveBtn').onclick = () => saveCur();
+$('#pdfBtn').onclick = () => { saveCur(true); exportPDF(cur); };
+document.addEventListener('keydown', e => { if ((e.metaKey||e.ctrlKey) && e.key === 's'){ e.preventDefault(); if (!$('#v-editor').classList.contains('hidden')) saveCur(); }});
+window.addEventListener('beforeunload', e => { if (dirty){ e.preventDefault(); e.returnValue = ''; }});
+
+function confirmBox(msg, onYes, yesLabel='OK'){
+  const m = document.createElement('div'); m.className = 'modal';
+  m.innerHTML = `<div class="box"><p>${esc(msg)}</p><div class="row"><button class="btn" data-n>Cancel</button><button class="btn primary" data-y>${esc(yesLabel)}</button></div></div>`;
+  m.onclick = e => { if (e.target === m || e.target.hasAttribute('data-n')) m.remove(); if (e.target.hasAttribute('data-y')){ m.remove(); onYes(); } };
+  document.body.appendChild(m);
+}
+let tt; function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('show'), 2200); }
+
+/* ---------------- Boot ---------------- */
+load();
+cur = blankDoc('quote');
+show('editor');
+})();
+</script>
+</body>
+</html>
