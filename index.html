@@ -184,6 +184,18 @@ table.list{width:100%;border-collapse:separate;border-spacing:0;background:var(-
   .top{flex-wrap:wrap}
 }
 
+/* ---------- Lock ---------- */
+body.locked .app{display:none}
+.lock{position:fixed;inset:0;z-index:70;background:var(--bg);display:grid;place-items:center;padding:20px}
+.lockBox{width:min(340px,100%);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:28px 24px;text-align:center;display:flex;flex-direction:column;gap:10px}
+.lockBox h2{margin:6px 0 0;font-size:20px}
+.lockBox p{margin:0 0 6px}
+.lockBox .inp{font-size:16px;padding:12px;text-align:center}
+.lockLogo{width:64px;height:64px;margin:0 auto;background:center/contain no-repeat}
+.lockErr{color:var(--bad);font-size:13px;min-height:18px}
+.lockBox.shake{animation:shake .35s}
+@keyframes shake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+
 /* ---------- Phone ---------- */
 @media (max-width:700px){
   body{-webkit-text-size-adjust:100%}
@@ -259,6 +271,7 @@ table.list{width:100%;border-collapse:separate;border-spacing:0;background:var(-
     </nav>
     <div class="spacer"></div>
     <span class="dirty hidden" id="dirty">● Unsaved</span>
+    <button class="btn sm ghost hidden" id="lockBtn" title="Lock now">🔒 Lock</button>
     <div id="editorActions" style="display:flex;gap:8px">
       <button class="btn" id="newQuote">+ Quotation</button>
       <button class="btn" id="newInvoice">+ Invoice</button>
@@ -305,6 +318,17 @@ table.list{width:100%;border-collapse:separate;border-spacing:0;background:var(-
 
 <div id="print"></div>
 <div class="toast" id="toast"></div>
+<div id="lock" class="lock hidden">
+  <form class="lockBox" id="lockForm" autocomplete="off">
+    <div class="lockLogo"></div>
+    <h2>Billbook is locked</h2>
+    <p class="hint">Enter your password to continue.</p>
+    <input class="inp" type="password" id="lockPw" placeholder="Password" autocomplete="current-password">
+    <div class="lockErr" id="lockErr"></div>
+    <button class="btn accent" type="submit" style="width:100%;justify-content:center">Unlock</button>
+    <button class="btn ghost sm" type="button" id="lockForgot" style="margin-top:6px;align-self:center;color:var(--muted)">Forgot password?</button>
+  </form>
+</div>
 
 <script>
 (() => {
@@ -763,6 +787,7 @@ function renderSettings(){
     ${f('Default invoice notes','invNotes','textarea','full')}
     ${f('Default quotation terms','qtNotes','textarea','full')}
   </div></div>
+  <div class="card"><h3>Password lock</h3>${lockSettingsHTML()}</div>
   <div class="card"><h3>Data & backup</h3>
     <p class="hint" style="margin-top:0">History is stored in this browser only${storageOK?'':' (storage is unavailable here, so nothing will be kept)'}. Download a backup now and then, and import it to move to another computer.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -832,10 +857,111 @@ function confirmBox(msg, onYes, yesLabel='OK'){
 }
 let tt; function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('show'), 2200); }
 
+/* ---------------- Password lock ---------------- */
+const LOCK_KEY = 'billbook.lock', UNLOCK_KEY = 'billbook.unlocked';
+function getLock(){ try { return JSON.parse(localStorage.getItem(LOCK_KEY)) || null; } catch { return null; } }
+function setLock(v){ try { v ? localStorage.setItem(LOCK_KEY, JSON.stringify(v)) : localStorage.removeItem(LOCK_KEY); } catch {} }
+async function hashPw(pw, salt){
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({name:'PBKDF2', salt:enc.encode(salt), iterations:150000, hash:'SHA-256'}, key, 256);
+  return [...new Uint8Array(bits)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+const newSalt = () => [...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, '0')).join('');
+async function checkPw(pw){ const L = getLock(); return !!L && (await hashPw(pw, L.salt)) === L.hash; }
+
+function isUnlocked(){ try { return sessionStorage.getItem(UNLOCK_KEY) === '1'; } catch { return false; } }
+function lockNow(){
+  if (!getLock()) return;
+  if (dirty && cur) saveCur(true);
+  try { sessionStorage.removeItem(UNLOCK_KEY); } catch {}
+  document.body.classList.add('locked'); $('#lock').classList.remove('hidden');
+  $('#lockPw').value = ''; $('#lockErr').textContent = ''; setTimeout(() => $('#lockPw').focus(), 50);
+}
+function unlockUI(){
+  try { sessionStorage.setItem(UNLOCK_KEY, '1'); } catch {}
+  document.body.classList.remove('locked'); $('#lock').classList.add('hidden'); armIdle();
+}
+function syncLockBtn(){ $('#lockBtn').classList.toggle('hidden', !getLock()); }
+$('#lockForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (await checkPw($('#lockPw').value)) unlockUI();
+  else { $('#lockErr').textContent = 'Wrong password'; const b = $('#lockForm'); b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake'); $('#lockPw').select(); }
+});
+$('#lockForgot').onclick = () => {
+  const m = document.createElement('div'); m.className = 'modal'; m.style.zIndex = 80;
+  m.innerHTML = `<div class="box"><p>The password can't be recovered. You can reset the lock, but for your privacy this also <b>erases every quotation, invoice and setting saved in this browser</b>. If you have a backup file, you can import it afterwards.</p><div class="row"><button class="btn" data-n>Cancel</button><button class="btn primary" data-y style="background:var(--bad);border-color:var(--bad);color:#fff">Erase & reset</button></div></div>`;
+  m.onclick = e => { if (e.target === m || e.target.hasAttribute('data-n')) m.remove();
+    if (e.target.hasAttribute('data-y')){ try { localStorage.removeItem(KEY); localStorage.removeItem(LOCK_KEY); } catch {} location.reload(); } };
+  document.body.appendChild(m);
+};
+$('#lockBtn').onclick = lockNow;
+
+// auto-lock after inactivity
+let idleT;
+function armIdle(){
+  clearTimeout(idleT); const L = getLock(); if (!L || !+L.autoLock) return;
+  idleT = setTimeout(lockNow, +L.autoLock * 60000);
+}
+['pointerdown','keydown','scroll','touchstart'].forEach(ev => addEventListener(ev, () => { if (!document.body.classList.contains('locked')) armIdle(); }, {passive:true}));
+document.addEventListener('visibilitychange', () => {
+  const L = getLock();
+  if (document.hidden) { try { sessionStorage.setItem('billbook.hiddenAt', Date.now()); } catch {} }
+  else if (L && +L.autoLock) { try { const t = +sessionStorage.getItem('billbook.hiddenAt'); if (t && Date.now() - t > +L.autoLock * 60000) lockNow(); } catch {} }
+});
+
+function lockSettingsHTML(){
+  const L = getLock();
+  if (!L) return `<p class="hint" style="margin-top:0">Ask for a password every time Billbook is opened in this browser.</p>
+    <div class="grid">
+      <label class="f">New password<input type="password" id="pwNew" autocomplete="new-password"></label>
+      <label class="f">Confirm password<input type="password" id="pwNew2" autocomplete="new-password"></label>
+    </div>
+    <div style="margin-top:10px"><button class="btn primary" id="pwSet">Set password</button></div>`;
+  return `<p class="hint" style="margin-top:0">✓ Password is on. You'll be asked for it when Billbook opens.</p>
+    <div class="grid">
+      <label class="f">Auto-lock after<select id="pwAuto">${[['0','Never'],['5','5 minutes'],['15','15 minutes'],['30','30 minutes'],['60','1 hour']].map(([v,t]) => `<option value="${v}" ${String(L.autoLock)===v?'selected':''}>${t}</option>`).join('')}</select></label>
+      <span></span>
+      <label class="f">Current password<input type="password" id="pwCur" autocomplete="current-password"></label>
+      <label class="f">New password<input type="password" id="pwNew" autocomplete="new-password"></label>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button class="btn" id="pwChange">Change password</button>
+      <button class="btn ghost danger" id="pwRemove">Remove password</button>
+    </div>`;
+}
+$('#settingsForm').addEventListener('click', async e => {
+  const id = e.target.id;
+  if (id === 'pwSet'){
+    const a = $('#pwNew').value, b = $('#pwNew2').value;
+    if (a.length < 4) return toast('Use at least 4 characters');
+    if (a !== b) return toast("Passwords don't match");
+    const salt = newSalt(); setLock({salt, hash: await hashPw(a, salt), autoLock: 15});
+    unlockUI(); syncLockBtn(); renderSettings(); toast('Password set — auto-lock after 15 min');
+  }
+  if (id === 'pwChange'){
+    if (!(await checkPw($('#pwCur').value))) return toast('Current password is wrong');
+    const a = $('#pwNew').value; if (a.length < 4) return toast('Use at least 4 characters');
+    const L = getLock(), salt = newSalt(); setLock({...L, salt, hash: await hashPw(a, salt)});
+    renderSettings(); toast('Password changed');
+  }
+  if (id === 'pwRemove'){
+    if (!(await checkPw($('#pwCur').value))) return toast('Enter your current password to remove it');
+    setLock(null); clearTimeout(idleT); syncLockBtn(); renderSettings(); toast('Password removed');
+  }
+});
+$('#settingsForm').addEventListener('change', e => {
+  if (e.target.id !== 'pwAuto') return;
+  setLock({...getLock(), autoLock: +e.target.value}); armIdle(); toast('Auto-lock updated');
+});
+
 /* ---------------- Boot ---------------- */
 load();
+$('.lockLogo').style.backgroundImage = `url(${db.settings.logo || LOGO})`;
 cur = blankDoc('quote');
 show('editor');
+syncLockBtn();
+if (getLock() && !isUnlocked()) lockNow(); else armIdle();
 })();
 </script>
 </body>
