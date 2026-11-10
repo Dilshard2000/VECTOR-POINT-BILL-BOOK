@@ -2,7 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e0e10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Billbook">
 <title>Billbook — Quotes & Invoices</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -55,6 +60,9 @@ textarea{resize:vertical;min-height:64px}
 .items{display:flex;flex-direction:column;gap:8px}
 .item{border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--soft);display:grid;grid-template-columns:1fr 70px 110px 28px;gap:6px;align-items:start}
 .item .inp{background:var(--panel)}
+.mini{display:block;min-width:0}
+.mini span{display:none}
+.mswitch{display:none!important}
 .item .d{grid-column:1/2}
 .item .detail{grid-column:1/-1;font-size:13px;color:var(--muted)}
 .item .x{border:0;background:none;color:var(--muted);font-size:18px;line-height:1;padding:6px 0}
@@ -168,11 +176,64 @@ table.list{width:100%;border-collapse:separate;border-spacing:0;background:var(-
 #print{display:none}
 
 @media (max-width:980px){
-  .editor{grid-template-columns:1fr}
+  .editor{grid-template-columns:minmax(0,1fr)}
+  .editor>*{min-width:0}
   .previewWrap{position:static}
   .stats{grid-template-columns:1fr 1fr}
   .settings{grid-template-columns:1fr}
   .top{flex-wrap:wrap}
+}
+
+/* ---------- Phone ---------- */
+@media (max-width:700px){
+  body{-webkit-text-size-adjust:100%}
+  .top{padding:10px 12px;padding-top:calc(10px + env(safe-area-inset-top));gap:10px;backdrop-filter:none;-webkit-backdrop-filter:none;background:var(--bg)}
+  .tabs{order:3;width:100%;display:grid;grid-template-columns:repeat(4,1fr)}
+  .tabs button{padding:8px 4px}
+  .dirty{margin-left:auto}
+  #editorActions{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid!important;grid-template-columns:1fr 1fr 1fr 1.2fr;gap:6px;padding:10px 12px;padding-bottom:calc(10px + env(safe-area-inset-bottom));background:rgba(14,14,16,.95);backdrop-filter:blur(8px);border-top:1px solid var(--line)}
+  #editorActions .btn{justify-content:center;padding:11px 4px;font-size:13px}
+  .editor{padding:12px 12px 96px;gap:12px}
+  .mswitch{display:grid!important;margin:0;position:sticky;top:110px;z-index:10;box-shadow:0 6px 16px rgba(0,0,0,.4)}
+  .editor .previewWrap{display:none;position:static}
+  .editor.m-preview .previewWrap{display:block}
+  .editor.m-preview .form{display:none}
+  .card{padding:14px}
+  .grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+  .f{min-width:0}
+  .f input,.f select{min-width:0;max-width:100%}
+  .f input,.f select,.f textarea,.inp{font-size:16px;padding:10px}
+  .btn{padding:10px 14px}
+  .btn.sm{padding:8px 12px}
+  .ihead{display:none}
+  .item{grid-template-columns:1fr 1fr 32px;gap:8px}
+  .item .d{grid-column:1/-1}
+  .mini span{display:block;font-size:11px;color:var(--muted);margin:0 0 3px 2px}
+  .item .x{align-self:end;padding-bottom:10px;font-size:22px}
+  .page{padding:12px 12px 40px}
+  .stats,.cstats{grid-template-columns:1fr 1fr;gap:8px}
+  .stat{padding:12px}
+  .stat div{font-size:16px}
+  .filters .inp{flex:1}
+  .filters .inp.search{flex-basis:100%}
+  /* tables become cards */
+  table.list,table.list tbody{display:block;border:0;background:none}
+  table.list thead{display:none}
+  table.list tr{display:grid;grid-template-columns:1fr auto;grid-template-areas:"num amt" "client client" "type st" "iss due" "acts acts";gap:6px 10px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px}
+  table.list td{display:block;padding:0;border:0}
+  table.list tr:hover td{background:none}
+  .c-num{grid-area:num}.c-amt{grid-area:amt}.c-client{grid-area:client;font-weight:500}
+  .c-type{grid-area:type;align-self:center}.c-st{grid-area:st;justify-self:end}
+  .c-iss{grid-area:iss;font-size:12px;color:var(--muted)}.c-due{grid-area:due;font-size:12px;color:var(--muted);text-align:right}
+  .c-iss::before{content:"Issued "}.c-due::before{content:"Due "}
+  .c-acts{grid-area:acts;border-top:1px solid var(--line)!important;padding-top:10px!important;margin-top:4px}
+  .list .acts{justify-content:flex-start;flex-wrap:wrap}
+  .clientsWrap{grid-template-columns:1fr}
+  .clientCards{flex-direction:row;overflow-x:auto;max-height:none;scroll-snap-type:x mandatory;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+  .ccard{min-width:250px;scroll-snap-align:start}
+  .chead{flex-wrap:wrap}
+  .settings .grid{grid-template-columns:1fr}
+  .toast{bottom:calc(84px + env(safe-area-inset-bottom));max-width:90vw;text-align:center}
 }
 
 /* ---------- Print = PDF ---------- */
@@ -208,6 +269,7 @@ table.list{width:100%;border-collapse:separate;border-spacing:0;background:var(-
 
   <!-- EDITOR -->
   <main id="v-editor" class="editor">
+    <div class="mswitch seg"><button data-m="form" class="on">Edit</button><button data-m="preview">Preview</button></div>
     <section class="form" id="form"></section>
     <section class="previewWrap">
       <div class="previewBar"><span id="previewLabel">Preview · A4</span><span id="convertSlot"></span></div>
@@ -406,8 +468,8 @@ function renderItems(){
   $('#items').innerHTML = cur.items.map((it, i) => `
     <div class="item" data-i="${i}">
       <input class="inp d" data-ik="desc" value="${esc(it.desc)}" placeholder="Item / service">
-      <input class="inp" data-ik="qty" type="number" step="any" value="${it.qty}">
-      <input class="inp" data-ik="rate" type="number" step="any" value="${it.rate}">
+      <label class="mini"><span>Qty</span><input class="inp" data-ik="qty" type="number" step="any" inputmode="decimal" value="${it.qty}"></label>
+      <label class="mini"><span>Rate</span><input class="inp" data-ik="rate" type="number" step="any" inputmode="decimal" value="${it.rate}"></label>
       <button class="x" data-del="${i}" title="Remove">×</button>
       <input class="inp detail" data-ik="detail" value="${esc(it.detail)}" placeholder="Details (optional)">
       <div class="amt">${money((+it.qty||0)*(+it.rate||0), cur.currency)}</div>
@@ -576,13 +638,13 @@ function docTable(rows, showClient){
   return `<table class="list"><thead><tr><th>Number</th><th>Type</th>${showClient?'<th>Client</th>':''}<th>Issued</th><th>Due / Valid</th><th class="r">Amount</th><th>Status</th><th></th></tr></thead><tbody>
   ${rows.map(d => { const st = effStatus(d), opts = d.type==='invoice'?INV_STATUS:QT_STATUS; return `
     <tr data-id="${d.id}">
-      <td><b>${esc(d.number)}</b>${d.project?`<div class="hint">${esc(d.project)}</div>`:''}</td>
-      <td><span class="tag ${d.type}">${d.type==='invoice'?'Invoice':'Quote'}</span></td>
-      ${showClient?`<td>${esc(d.client.company || d.client.name || '—')}</td>`:''}
-      <td>${fmtDate(d.issueDate)}</td><td>${fmtDate(d.dueDate)}</td>
-      <td class="r"><b>${money(totals(d).total, d.currency)}</b></td>
-      <td><select class="status ${st}" data-act="status">${opts.map(o=>`<option ${o===d.status?'selected':''}>${o}</option>`).join('')}${st==='Overdue'?'<option selected disabled>Overdue</option>':''}</select></td>
-      <td><div class="acts">
+      <td class="c-num"><b>${esc(d.number)}</b>${d.project?`<div class="hint">${esc(d.project)}</div>`:''}</td>
+      <td class="c-type"><span class="tag ${d.type}">${d.type==='invoice'?'Invoice':'Quote'}</span></td>
+      ${showClient?`<td class="c-client">${esc(d.client.company || d.client.name || '—')}</td>`:''}
+      <td class="c-iss">${fmtDate(d.issueDate)}</td><td class="c-due">${fmtDate(d.dueDate)}</td>
+      <td class="r c-amt"><b>${money(totals(d).total, d.currency)}</b></td>
+      <td class="c-st"><select class="status ${st}" data-act="status">${opts.map(o=>`<option ${o===d.status?'selected':''}>${o}</option>`).join('')}${st==='Overdue'?'<option selected disabled>Overdue</option>':''}</select></td>
+      <td class="c-acts"><div class="acts">
         <button class="btn sm" data-act="open">Open</button>
         <button class="btn sm" data-act="pdf">PDF</button>
         ${d.type==='quote'?'<button class="btn sm" data-act="convert" title="Convert to invoice">→ Invoice</button>':''}
@@ -665,7 +727,7 @@ function renderClients(){
     ${docTable(g.docs, false)}`;
 }
 $('#cq').addEventListener('input', renderClients);
-$('#clientCards').addEventListener('click', e => { const b = e.target.closest('.ccard'); if (!b) return; selClient = b.dataset.ck; renderClients(); });
+$('#clientCards').addEventListener('click', e => { const b = e.target.closest('.ccard'); if (!b) return; selClient = b.dataset.ck; renderClients(); if (innerWidth <= 700) $('#clientDetail').scrollIntoView({behavior:'smooth'}); });
 $('#clientDetail').addEventListener('click', e => {
   const t = e.target.dataset.newfor; if (!t) return;
   const g = clientGroups().find(x => x.key === selClient); if (!g) return;
@@ -750,6 +812,11 @@ function show(view){
   if (view === 'editor'){ renderForm(); renderPreview(); }
 }
 document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => show(b.dataset.view));
+document.querySelectorAll('.mswitch button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.mswitch button').forEach(x => x.classList.toggle('on', x === b));
+  $('#v-editor').classList.toggle('m-preview', b.dataset.m === 'preview');
+  fit(); window.scrollTo(0, 0);
+});
 $('#newQuote').onclick = () => newDoc('quote');
 $('#newInvoice').onclick = () => newDoc('invoice');
 $('#saveBtn').onclick = () => saveCur();
